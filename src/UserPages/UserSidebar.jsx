@@ -29,7 +29,6 @@ export default function UserSidebar() {
   const menuItems = [
     { to: '/user/addresses', icon: FaMapMarkerAlt, label: 'Addresses', show: true },
     { to: '/user/orders', icon: FaBox, label: 'Orders', show: isLoggedIn },
-    { to: '/user/guest-orders', icon: FaBoxOpen, label: 'Guest Orders', show: !isLoggedIn },
   ];
 
   const handleLogout = () => {

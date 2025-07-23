@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { ShoppingCart, Star, Eye, Snowflake, Heart } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import webService from '../../services/Website/WebService';
 import { useStore } from '../../context/StoreContext';
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
+import { useAuth } from '../../context/AuthContext';
+import LoginModal from '../../components/LoginModal';
 
 // Fallback products in case API fails or returns no data
 const fallbackProducts = [
@@ -51,6 +53,12 @@ const TopProductsPage = () => {
   const [error, setError] = useState(null);
   const { selectedStore } = useStore();
   const { addToCart, isInCart, getCartItem, updateCartItem, removeFromCart } = useCart();
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const [showLoginModal, setShowLoginModal] = useState(false);
+
+  // Function to trigger login modal from child
+  const triggerLoginModal = () => setShowLoginModal(true);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -76,7 +84,7 @@ const TopProductsPage = () => {
     fetchProducts();
   }, [selectedStore]);
 
-  const ProductCard = ({ product }) => {
+  const ProductCard = ({ product, triggerLoginModal }) => {
     const [isHovered, setIsHovered] = useState(false);
     const productId = product._id || product.id;
     const isFavorite = isInWishlist(productId);
@@ -112,19 +120,21 @@ const TopProductsPage = () => {
 
     // Get product name
     const name = product.ItemName || product.name || '';
-    // Get product price
-    let price = '';
-    if (product.prices && Array.isArray(product.prices)) {
-      const priceItem = product.prices.find(p => p.PriceList === 2); // Delivery Price
-      price = priceItem ? priceItem.Price : 0;
-    } else if (product.ItemPrices && Array.isArray(product.ItemPrices)) {
-      const priceItem = product.ItemPrices.find(p => p.PriceList === 2);
-      price = priceItem ? priceItem.Price : 0;
-    } else if (product.price) {
-      const priceNum = parseFloat(product.price.replace('€', ''));
-      price = isNaN(priceNum) ? 0 : priceNum;
-    } else {
-      price = 0;
+    // Price logic
+    let price = 0;
+    if (isAuthenticated()) {
+      if (Array.isArray(product.prices)) {
+        const priceItem = product.prices.find(p => p.PriceList === 2);
+        price = priceItem ? priceItem.Price : 0;
+      } else if (Array.isArray(product.ItemPrices)) {
+        const priceItem = product.ItemPrices.find(p => p.PriceList === 2);
+        price = priceItem ? priceItem.Price : 0;
+      } else if (product.price) {
+        const priceNum = parseFloat(product.price.replace('€', ''));
+        price = isNaN(priceNum) ? 0 : priceNum;
+      } else {
+        price = 0;
+      }
     }
     // Get product rating and reviews
     const rating = product.rating || 0;
@@ -134,6 +144,10 @@ const TopProductsPage = () => {
 
     // Add to Cart handler
     const handleAddToCart = async () => {
+      if (!isAuthenticated()) {
+        triggerLoginModal();
+        return;
+      }
       setAddingToCart(prev => ({ ...prev, [productId]: true }));
       setAddToCartError(prev => ({ ...prev, [productId]: null }));
       try {
@@ -185,6 +199,15 @@ const TopProductsPage = () => {
       }
     };
 
+    const handleAddToCartClick = async (e) => {
+      if (e && e.stopPropagation) e.stopPropagation();
+      if (!isAuthenticated()) {
+        triggerLoginModal();
+        return;
+      }
+      await handleAddToCart();
+    };
+
     return (
       <div 
         className="card-premier transition-all duration-300 p-4 relative group transform hover:-translate-y-1"
@@ -211,7 +234,14 @@ const TopProductsPage = () => {
 
         {/* Favorite Button */}
         <button
-          onClick={() => toggleWishlist(productId)}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!isAuthenticated()) {
+              triggerLoginModal();
+              return;
+            }
+            toggleWishlist(productId);
+          }}
           className="absolute top-3 right-3 z-10 p-2 rounded-full bg-white/80 hover:bg-white transition-all duration-200 shadow-md"
         >
           <Heart
@@ -267,45 +297,44 @@ const TopProductsPage = () => {
           </div>
 
           {/* Price */}
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-xl" style={{ color: '#8e191c' }}>
-              €{price}
-            </span>
-            <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-              {category}
+          <div className="flex items-center gap-2">
+            <span className="text-xl font-bold text-gray-800">
+              {price ? `د.إ${price.toFixed(2)}` : ''}
             </span>
           </div>
 
-          {/* Add to Cart or Quantity Controls */}
-         {quantity > 0 ? (
-           <div className="flex items-center gap-2 bg-premier text-white rounded-xl px-3 py-2">
-             <button
-               onClick={handleDecrement}
-               disabled={isAdding}
-               className="w-7 h-7 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
-             >
-               -
-             </button>
-             <span className="flex-1 text-center font-medium">{isAdding ? <span className="animate-pulse">{quantity}</span> : quantity}</span>
-             <button
-               onClick={handleIncrement}
-               disabled={isAdding}
-               className="w-7 h-7 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
-             >
-               +
-             </button>
-           </div>
-         ) : (
-          <button 
-            onClick={handleAddToCart}
-            disabled={inCart || isAdding}
-            style={{ background: '#8e191c', color: 'white' }}
-            className={`w-full py-3 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${inCart ? 'opacity-70 cursor-not-allowed' : ''}`}
-          >
-            <ShoppingCart size={16} />
-            <span>{isAdding ? 'Adding...' : inCart ? 'Added to Cart!' : 'Add to Cart'}</span>
-          </button>
-         )}
+          {/* Add to Cart Section */}
+          <div className="flex items-center gap-2">
+            {quantity > 0 ? (
+              <div className="flex items-center gap-2 bg-premier text-white rounded-xl px-3 py-2">
+                <button
+                  onClick={handleDecrement}
+                  disabled={isAdding}
+                  className="w-7 h-7 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+                >
+                  -
+                </button>
+                <span className="flex-1 text-center font-medium">{isAdding ? <span className="animate-pulse">{quantity}</span> : quantity}</span>
+                <button
+                  onClick={handleIncrement}
+                  disabled={isAdding}
+                  className="w-7 h-7 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+                >
+                  +
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={handleAddToCartClick}
+                disabled={inCart || isAdding}
+                style={{ background: '#8e191c', color: 'white' }}
+                className={`w-full py-3 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${inCart ? 'opacity-70 cursor-not-allowed' : ''}`}
+              >
+                <ShoppingCart size={16} />
+                <span>{isAdding ? 'Adding...' : inCart ? 'Added to Cart!' : 'Add to Cart'}</span>
+              </button>
+            )}
+          </div>
           {errorMsg && (
             <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-red-700 text-xs flex items-center gap-2">
@@ -352,7 +381,7 @@ const TopProductsPage = () => {
                   animationFillMode: 'forwards'
                 }}
               >
-                <ProductCard product={product} />
+                <ProductCard product={product} triggerLoginModal={triggerLoginModal} />
               </div>
             ))}
           </div>
@@ -398,6 +427,15 @@ const TopProductsPage = () => {
           animation: fade-in-up 0.6s ease-out;
         }
       `}</style>
+
+      {/* Login Modal rendered ONCE here, outside the grid */}
+      {showLoginModal && (
+        <LoginModal
+          show={showLoginModal}
+          onClose={() => setShowLoginModal(false)}
+          onLogin={() => { setShowLoginModal(false); navigate('/login'); }}
+        />
+      )}
     </div>
   );
 };

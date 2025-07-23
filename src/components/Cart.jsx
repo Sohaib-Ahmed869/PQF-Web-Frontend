@@ -54,7 +54,7 @@ const Cart = () => {
   };
 
   const formatPrice = (price) => {
-    return `€${parseFloat(price || 0).toFixed(2)}`;
+    return `د.إ${parseFloat(price || 0).toFixed(2)}`;
   };
 
   // Event handlers
@@ -151,29 +151,6 @@ const Cart = () => {
   const handleLogin = () => {
     setShowAuthModal(false);
     navigate('/login');
-  };
-  const handleGuest = () => {
-    setShowAuthModal(false);
-    // Optionally set a guest flag here if needed
-    navigate('/checkout', {
-      state: {
-        orderSummary: {
-          items: cart.items.map(item => {
-            const product = item.product || {};
-            return {
-              title: product.ItemName || product.name || item.ItemName || item.name || 'Product',
-              price: item.price,
-              quantity: item.quantity,
-              image: product.image || (Array.isArray(product.images) && product.images[0]) || item.image || (Array.isArray(item.images) && item.images[0]) || undefined,
-              _id: product._id || product.id || item._id || item.id || undefined,
-              id: product.id || product._id || item.id || item._id || undefined,
-            };
-          }),
-          subtotal: cart.total,
-          shipping: 0 // You can update this if you have shipping logic
-        }
-      }
-    });
   };
   const handleCancelModal = () => {
     setShowAuthModal(false);
@@ -406,19 +383,13 @@ const Cart = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
           <div className="bg-white rounded-lg shadow-lg p-8 max-w-sm w-full text-center">
             <h2 className="text-xl font-bold mb-4">Proceed to Checkout</h2>
-            <p className="mb-6 text-gray-700">You need to be logged in to checkout. Would you like to log in or continue as a guest?</p>
+            <p className="mb-6 text-gray-700">You need to be logged in to checkout.</p>
             <div className="flex flex-col gap-3">
               <button
                 onClick={handleLogin}
                 className="w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition-colors"
               >
                 Login
-              </button>
-              <button
-                onClick={handleGuest}
-                className="w-full bg-gray-200 text-gray-800 py-2 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
-              >
-                Continue as Guest
               </button>
               <button
                 onClick={handleCancelModal}

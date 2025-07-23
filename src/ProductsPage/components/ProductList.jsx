@@ -7,6 +7,7 @@ import { useCart } from '../../context/CartContext';
 import userService from '../../services/userService';
 import { useAuth } from '../../context/AuthContext';
 import { useWishlist } from '../../context/WishlistContext';
+import LoginModal from '../../components/LoginModal';
 
 const HalalIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -49,6 +50,9 @@ const ProductListPage = () => {
     { value: '25-50', label: '€25 - €50' },
     { value: '50+', label: '€50+' }
   ];
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  // Function to trigger login modal from child
+  const triggerLoginModal = () => setShowLoginModal(true);
 
   const { isAuthenticated } = useAuth();
 
@@ -202,8 +206,9 @@ const ProductListPage = () => {
 
   // Format price display
   const formatPrice = (product) => {
+    if (!isAuthenticated()) return '';
     const price = getPrice(product);
-    return `€${price.toFixed(2)}`;
+    return price ? `د.إ${price.toFixed(2)}` : '';
   };
 
   // Get badges (halal, frozen, etc.)
@@ -240,7 +245,7 @@ const ProductListPage = () => {
     ];
   };
 
-  const ProductCard = ({ product, index }) => {
+  const ProductCard = ({ product, index, triggerLoginModal }) => {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [isHovered, setIsHovered] = useState(false);
     const images = getProductImages(product);
@@ -287,8 +292,27 @@ const ProductListPage = () => {
       }
     };
 
+    const handleAddToCartClick = (e) => {
+      e.stopPropagation();
+      if (!isAuthenticated()) {
+        triggerLoginModal();
+        return;
+      }
+      handleAddToCart(e);
+    };
+
     const cartItem = getCartItem(product._id || product.id);
     const quantityInCart = cartItem ? cartItem.quantity : 0;
+
+    // Wishlist click handler
+    const handleWishlistClick = (e) => {
+      e.stopPropagation();
+      if (!isAuthenticated()) {
+        triggerLoginModal();
+        return;
+      }
+      toggleWishlist(product._id || product.id);
+    };
 
     return (
       <div 
@@ -369,10 +393,7 @@ const ProductListPage = () => {
 
           {/* Wishlist Button */}
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleWishlist(product._id || product.id);
-            }}
+            onClick={handleWishlistClick}
             className="absolute top-2 right-2 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-all duration-200"
           >
             <Heart
@@ -427,7 +448,6 @@ const ProductListPage = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-xl font-bold text-gray-800">{formatPrice(product)}</span>
-              {/* No originalPrice logic for admin-style data */}
             </div>
             {/* Stock Badge */}
             <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
@@ -467,7 +487,7 @@ const ProductListPage = () => {
               </div>
             ) : (
               <button
-                onClick={handleAddToCart}
+                onClick={handleAddToCartClick}
                 disabled={addingToCart || stock === 0}
                 className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white font-medium py-2.5 px-4 rounded-xl hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
@@ -489,14 +509,14 @@ const ProductListPage = () => {
                 )}
               </button>
             )}
-           {addToCartError && (
-             <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg w-full">
-               <p className="text-red-700 text-xs flex items-center gap-2">
-                 <AlertCircle className="w-4 h-4" />
-                 {addToCartError}
-               </p>
-             </div>
-           )}
+            {addToCartError && (
+              <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg w-full">
+                <p className="text-red-700 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4" />
+                  {addToCartError}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -619,7 +639,7 @@ const ProductListPage = () => {
             : 'grid-cols-1'
         }`}>
           {paginatedProducts.map((product, index) => (
-            <ProductCard key={product._id || product.id} product={product} index={index} />
+            <ProductCard key={product._id || product.id} product={product} index={index} triggerLoginModal={triggerLoginModal} />
           ))}
         </div>
         {/* Pagination Controls */}
@@ -770,7 +790,7 @@ const ProductListPage = () => {
             </div>
             <div className="flex justify-between items-center pt-2 border-t">
               <span className="font-bold">
-                Total: €{cart.items.reduce((total, item) => {
+                Total: د.إ{cart.items.reduce((total, item) => {
                   let itemPrice = 0;
                   
                   // Use item.price if available and valid
@@ -808,6 +828,11 @@ const ProductListPage = () => {
           </>
         )}
       </div>
+      <LoginModal
+        show={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        onLogin={() => { setShowLoginModal(false); navigate('/login'); }}
+      />
     </div>
   );
 };

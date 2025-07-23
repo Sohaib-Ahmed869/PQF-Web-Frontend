@@ -628,7 +628,7 @@ const FuturisticNavbar = () => {
                     <div className="hidden md:block text-sm">
                       <div className="text-gray-600">Cart</div>
                       <div className="font-semibold text-red-600">
-                        €{cart.total ? cart.total.toFixed(2) : '0.00'}
+                        د.إ{cart.total ? cart.total.toFixed(2) : '0.00'}
                       </div>
                     </div>
                   </>

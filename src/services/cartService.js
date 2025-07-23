@@ -95,20 +95,6 @@ const cartService = {
       console.error('Error fetching abandoned carts:', error);
       throw error;
     }
-  },
-
-  // Sync guest cart with user cart (when user logs in)
-  syncGuestCart: async (guestCartItems, token, store) => {
-    try {
-      const response = await api.post('/cart/sync', 
-        { items: guestCartItems, store }, 
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      return response;
-    } catch (error) {
-      console.error('Error syncing guest cart:', error);
-      throw error;
-    }
   }
 };
 

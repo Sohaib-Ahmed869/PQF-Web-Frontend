@@ -111,61 +111,7 @@ export const WishlistProvider = ({ children }) => {
     }
   }, [wishlistItems, isAuthenticated, loading]);
 
-  // Sync guest wishlist with backend when user logs in
-  useEffect(() => {
-    const syncGuestWishlist = async () => {
-      if (isAuthenticated() && token) {
-        const localWishlist = localStorage.getItem('guest_wishlist');
-        if (localWishlist) {
-          try {
-            const guestWishlist = JSON.parse(localWishlist);
-            if (Array.isArray(guestWishlist) && guestWishlist.length > 0) {
-              // Sync guest wishlist to backend
-              await userService.mergeGuestWishlist(guestWishlist);
-              
-              // Clear guest wishlist
-              localStorage.removeItem('guest_wishlist');
-              
-              // Reload wishlist from backend
-              const res = await userService.getWishlist();
-              
-              // Handle response structure
-              let wishlistData = [];
-              if (res && typeof res === 'object') {
-                if (Array.isArray(res.wishlist)) {
-                  wishlistData = res.wishlist;
-                } else if (res.data && Array.isArray(res.data.wishlist)) {
-                  wishlistData = res.data.wishlist;
-                } else if (Array.isArray(res.data)) {
-                  wishlistData = res.data;
-                } else if (Array.isArray(res)) {
-                  wishlistData = res;
-                }
-              }
-              
-              // Safely convert wishlist items to strings
-              const wishlistIds = wishlistData
-                .filter(item => item != null)
-                .map(p => {
-                  if (typeof p === 'string') return p;
-                  if (typeof p === 'object' && p !== null) {
-                    return String(p._id || p.id || '');
-                  }
-                  return String(p || '');
-                })
-                .filter(id => id !== '');
-              
-              setWishlistItems(new Set(wishlistIds));
-            }
-          } catch (e) {
-            console.error('Error syncing guest wishlist:', e);
-          }
-        }
-      }
-    };
-
-    syncGuestWishlist();
-  }, [isAuthenticated, token]);
+  // Remove all guest wishlist logic and syncing
 
   // Add to wishlist
   const addToWishlist = async (itemId) => {

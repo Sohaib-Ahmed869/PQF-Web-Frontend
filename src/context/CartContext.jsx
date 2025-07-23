@@ -82,115 +82,21 @@ export const CartProvider = ({ children }) => {
     }
   }, [cart, isAuthenticated, loading]);
 
-  // Sync guest cart with backend when user logs in
-  useEffect(() => {
-    const syncGuestCart = async () => {
-      if (isAuthenticated() && token) {
-        const localCart = localStorage.getItem('guest_cart');
-        if (localCart) {
-          try {
-            const guestCart = JSON.parse(localCart);
-            if (guestCart.items && guestCart.items.length > 0) {
-              // Sync each item to backend
-              for (const item of guestCart.items) {
-                let productId = item.product;
-                if (typeof productId === 'object' && productId !== null) {
-                  productId = productId._id || productId.id || '';
-                }
-                if (typeof productId === 'string' && productId.length > 0) {
-                  await addToCart(productId, item.quantity, false); // Don't reload cart for each item
-                }
-              }
-              // Clear guest cart
-              localStorage.removeItem('guest_cart');
-              // Reload cart from backend
-              const res = await cartService.getCart(token);
-              const cartData = res.data?.data || res.data || { items: [] };
-              cartData.total = calculateTotal(Array.isArray(cartData.items) ? cartData.items : []);
-              setCart(cartData);
-            }
-          } catch (e) {
-            console.error('Error syncing guest cart:', e);
-          }
-        }
-      }
-    };
-
-    syncGuestCart();
-  }, [isAuthenticated, token]);
+  // Remove all guest cart logic and syncing
 
   // Cart actions
   const addToCart = async (productId, quantity = 1, shouldReload = true) => {
-    console.log('addToCart called with:', { productId, quantity });
+    if (!isAuthenticated() || !token) {
+      setError('You must be logged in to add items to the cart.');
+      throw new Error('You must be logged in to add items to the cart.');
+    }
     setError(null);
-    
     try {
-      if (isAuthenticated() && token) {
-        // Add to backend for authenticated users
-        const res = await cartService.addItem(productId, quantity, token, selectedStore?._id);
-        const cartData = res.data?.data || res.data || { items: [] };
-        cartData.total = calculateTotal(Array.isArray(cartData.items) ? cartData.items : []);
-        setCart(cartData);
-      } else {
-        // Add to local storage for guests
-        const newCart = { ...cart, items: Array.isArray(cart.items) ? [...cart.items] : [] };
-        const existingItemIndex = newCart.items.findIndex(
-          item => {
-            const itemProductId = item.product?._id || item.product?.id || item.product;
-            return String(itemProductId) === String(productId);
-          }
-        );
-        
-        if (existingItemIndex > -1) {
-          // Update existing item
-          newCart.items[existingItemIndex].quantity += quantity;
-        } else {
-          // Fetch product details for guests using WebService
-          let productDetails = { _id: productId };
-          let price = 0;
-          try {
-            const res = await WebService.getProductById(productId);
-            productDetails = res.data?.data || res.data || { _id: productId };
-            // Ensure prices and ItemPrices are arrays to prevent UI errors
-            if (!Array.isArray(productDetails.prices)) productDetails.prices = [];
-            if (!Array.isArray(productDetails.ItemPrices)) productDetails.ItemPrices = [];
-            // Extract price for default price list (2 = Delivery Price)
-            if (Array.isArray(productDetails.prices)) {
-              const priceItem = productDetails.prices.find(p => p.PriceList === 2);
-              price = priceItem ? priceItem.Price : 0;
-            } else if (Array.isArray(productDetails.ItemPrices)) {
-              const priceItem = productDetails.ItemPrices.find(p => p.PriceList === 2);
-              price = priceItem ? priceItem.Price : 0;
-            } else if (productDetails.price) {
-              price = typeof productDetails.price === 'string'
-                ? parseFloat(productDetails.price.replace(/[^0-9.]/g, ''))
-                : productDetails.price;
-            }
-          } catch (e) {
-            console.error('Error fetching product details for guest cart:', e);
-          }
-          // Check again for existing item (in case productDetails._id is different format)
-          const idx = newCart.items.findIndex(
-            item => {
-              const itemProductId = item.product?._id || item.product?.id || item.product;
-              const targetProductId = productDetails._id || productDetails.id || productId;
-              return String(itemProductId) === String(targetProductId);
-            }
-          );
-          if (idx > -1) {
-            newCart.items[idx].quantity += quantity;
-          } else {
-            newCart.items.push({ 
-              product: productDetails, 
-              quantity,
-              price
-            });
-          }
-        }
-        
-        newCart.total = calculateTotal(newCart.items);
-        setCart(newCart);
-      }
+      // Add to backend for authenticated users
+      const res = await cartService.addItem(productId, quantity, token, selectedStore?._id);
+      const cartData = res.data?.data || res.data || { items: [] };
+      cartData.total = calculateTotal(Array.isArray(cartData.items) ? cartData.items : []);
+      setCart(cartData);
     } catch (err) {
       console.error('Error adding to cart:', err);
       setError('Failed to add item to cart');

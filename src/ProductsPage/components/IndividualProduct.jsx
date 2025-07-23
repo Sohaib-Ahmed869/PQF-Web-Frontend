@@ -5,6 +5,8 @@ import { Star, Heart, ShoppingCart, Truck, Shield, Clock, ChevronLeft, ChevronRi
 import LoaderOverlay from '../../components/LoaderOverlay';
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
+import { useAuth } from '../../context/AuthContext';
+import LoginModal from '../../components/LoginModal';
 
 // Add global keyframes for animations
 if (typeof document !== 'undefined' && !document.getElementById('product-keyframes')) {
@@ -57,6 +59,8 @@ const IndividualProductPage = () => {
   const { addToCart } = useCart();
   const [addingToCart, setAddingToCart] = useState(false);
   const [addToCartError, setAddToCartError] = useState(null);
+  const { isAuthenticated } = useAuth();
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -94,7 +98,7 @@ const IndividualProductPage = () => {
   };
   const formatPrice = (product, priceListId = 2) => {
     const price = getPrice(product, priceListId);
-    return `€${price.toFixed(2)}`;
+    return `د.إ${price.toFixed(2)}`;
   };
   const getBadges = (product) => {
     if (!product) return [];
@@ -126,6 +130,10 @@ const IndividualProductPage = () => {
 
   // Replace handleAddToCart with async version
   const handleAddToCart = async () => {
+    if (!isAuthenticated()) {
+      navigate('/login');
+      return;
+    }
     setAddingToCart(true);
     setAddToCartError(null);
     try {
@@ -139,6 +147,15 @@ const IndividualProductPage = () => {
     } finally {
       setAddingToCart(false);
     }
+  };
+
+  const handleAddToCartClick = (e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    if (!isAuthenticated()) {
+      setShowLoginModal(true);
+      return;
+    }
+    handleAddToCart();
   };
 
   const nextImage = () => {
@@ -238,7 +255,14 @@ const IndividualProductPage = () => {
 
               {/* Wishlist Button */}
               <button
-                onClick={() => toggleWishlist(productId)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!isAuthenticated()) {
+                    setShowLoginModal(true);
+                    return;
+                  }
+                  toggleWishlist(productId);
+                }}
                 className="absolute top-4 right-4 z-10 p-3 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:scale-110 transition-all duration-300"
               >
                 <Heart
@@ -348,11 +372,17 @@ const IndividualProductPage = () => {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-lg opacity-90">Delivery price:</span>
-                  <span className="text-3xl font-bold">{formatPrice(product, 2)}</span>
+                  {isAuthenticated() ? (
+                    <span className="text-3xl font-bold">{formatPrice(product, 2)}</span>
+                  ) : (
+                    <span className="text-3xl font-bold opacity-60">—</span>
+                  )}
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-lg opacity-90">Price on site:</span>
-                  <span className="text-2xl font-semibold">{formatPrice(product, 1)}</span>
+                {/* Price */}
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl font-bold text-[#8e191c]">
+                    {isAuthenticated() ? (product.price ? `د.إ${parseFloat(product.price).toFixed(2)}` : 'د.إ0.00') : 'Login to see price'}
+                  </span>
                 </div>
                 <div className="pt-2 border-t border-white/20">
                   <span className="text-sm opacity-80">excluding VAT/kilo</span>
@@ -383,15 +413,20 @@ const IndividualProductPage = () => {
                 </div>
               </div>
               <button
-                onClick={handleAddToCart}
+                onClick={handleAddToCartClick}
                 disabled={addingToCart || getStock(product) === 0}
-                className="flex-1 text-white font-bold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                className={`flex-1 text-white font-bold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none ${!isAuthenticated() ? 'bg-gray-300 text-gray-700' : ''}`}
                 style={{ 
-                  background: getStock(product) === 0 ? '#gray-400' : 'linear-gradient(90deg, #8e191c 0%, #8e191c 100%)', 
-                  animation: getStock(product) > 0 ? 'pulse-glow 2s ease-in-out infinite' : 'none'
+                  background: !isAuthenticated() ? undefined : (getStock(product) === 0 ? '#gray-400' : 'linear-gradient(90deg, #8e191c 0%, #8e191c 100%)'), 
+                  animation: getStock(product) > 0 && isAuthenticated() ? 'pulse-glow 2s ease-in-out infinite' : 'none'
                 }}
               >
-                {addingToCart ? (
+                {!isAuthenticated() ? (
+                  <>
+                    <ShoppingCart size={20} />
+                    Add to Cart
+                  </>
+                ) : addingToCart ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
                     Adding...
@@ -572,6 +607,11 @@ const IndividualProductPage = () => {
           </div>
         </div>
       </div>
+      <LoginModal
+        show={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        onLogin={() => { setShowLoginModal(false); navigate('/login'); }}
+      />
     </div>
   );
 };

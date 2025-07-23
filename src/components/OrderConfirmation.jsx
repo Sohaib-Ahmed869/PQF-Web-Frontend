@@ -11,13 +11,7 @@ const OrderConfirmation = () => {
   const email = location.state?.email || '';
 
   const handleViewOrders = () => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      navigate('/user/orders');
-    } else {
-      // Pass email in state if available for guest lookup
-      navigate(`/user/guest-orders?email=${encodeURIComponent(email)}`);
-    }
+    navigate('/user/orders');
   };
 
   return (

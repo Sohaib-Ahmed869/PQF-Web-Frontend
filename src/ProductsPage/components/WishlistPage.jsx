@@ -147,7 +147,7 @@ const WishlistPage = () => {
   };
 
   const formatPrice = (price) => {
-    return `€${parseFloat(price || 0).toFixed(2)}`;
+    return `د.إ${parseFloat(price || 0).toFixed(2)}`;
   };
 
   if (loading) {

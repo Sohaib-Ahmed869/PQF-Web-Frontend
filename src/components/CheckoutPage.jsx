@@ -9,6 +9,7 @@ import { toast } from 'react-toastify';
 import { createPaymentIntent, createOrderAfterPayment } from '../services/checkoutService';
 import userService from '../services/userService';
 import { useStore } from '../context/StoreContext';
+import { useAuth } from '../context/AuthContext';
 
 // Initialize Stripe - replace with your actual publishable key
 const stripePromise = loadStripe("pk_test_51R4HwEP1U1i66wzc0CML1t20v7wPQrvuXPKrrXpnBJ0XVdIEDHuPazuL1ZPIVlQcbk4fSpCTrjla8nsMFog708Vl0031BNIGKo");
@@ -79,6 +80,7 @@ const CheckoutPageContent = () => {
   const stripe = useStripe();
   const elements = useElements();
   const { orderType, selectedStore } = useStore();
+  const { isAuthenticated, loading: authLoading } = useAuth();
 
   // Delivery method state
   const [deliveryMethod, setDeliveryMethod] = useState(orderType || 'delivery'); // 'delivery' or 'pickup'
@@ -121,6 +123,8 @@ const CheckoutPageContent = () => {
     notes: ""
   });
   const [sameAsShipping, setSameAsShipping] = useState(true);
+  // Add state for payment method
+  const [paymentMethod, setPaymentMethod] = useState('card'); // 'card', 'cash', 'cheque', 'bank_transfer'
 
   // Get order summary from navigation state
   const orderSummary = location.state?.orderSummary || { items: cart.items, subtotal: cart.total };
@@ -146,31 +150,6 @@ const CheckoutPageContent = () => {
   // Auto-populate user data if available
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (!token && deliveryMethod === 'delivery') {
-      // Guest user: prefill address from localStorage
-      const line1 = localStorage.getItem('delivery_address_line1') || '';
-      const line2 = localStorage.getItem('delivery_address_line2') || '';
-      const line3 = localStorage.getItem('delivery_address_line3') || '';
-      const country = localStorage.getItem('delivery_address_country') || '';
-      setFormState(prev => ({
-        ...prev,
-        shipping: {
-          ...prev.shipping,
-          street: line1,
-          city: line2,
-          state: line3,
-          country: country
-        },
-        billing: {
-          ...prev.billing,
-          street: line1,
-          city: line2,
-          zipCode: line3,
-          country: country
-        }
-      }));
-      return;
-    }
     if (!token) return;
     const fetchProfile = async () => {
       try {
@@ -432,7 +411,7 @@ const CheckoutPageContent = () => {
         } : undefined,
         deliveryMethod,
         pickupStore: deliveryMethod === 'pickup' ? selectedStore : undefined,
-        paymentMethod: 'stripe',
+        paymentMethod: paymentMethod, // Use the selected payment method
         itemsPrice: totals.itemsPrice,
         totalPrice: totals.totalPrice,
         notes: formState.notes,
@@ -473,6 +452,33 @@ const CheckoutPageContent = () => {
       setIsSubmitting(false);
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="w-full min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-16 h-16 border-4 border-[#8e191c]/30 border-t-[#8e191c] rounded-full animate-spin"></div>
+          <p className="text-[#8e191c] font-medium">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated()) {
+    return (
+      <div className="max-w-2xl mx-auto mt-12 p-8 bg-white rounded-xl shadow text-center">
+        <div className="mb-4 text-red-600 font-bold text-lg">
+          You must be logged in to place an order.
+        </div>
+        <button
+          onClick={() => navigate('/login')}
+          className="bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors"
+        >
+          Login
+        </button>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -747,7 +753,7 @@ const CheckoutPageContent = () => {
                           <div className="flex justify-between items-center">
                             <span className="text-[#8e191c] font-medium">{item.title}</span>
                             <span className="font-semibold text-[#8e191c]">
-                              ${(item.price * item.quantity).toFixed(2)}
+                              د.إ{(item.price * item.quantity).toFixed(2)}
                             </span>
                           </div>
                           <div className="ml-4 mt-1 text-sm text-black">
@@ -758,7 +764,7 @@ const CheckoutPageContent = () => {
                     </div>
                     <div className="border-t border-[#8e191c]/30 mt-3 pt-3">
                       <div className="flex justify-between items-center text-[#8e191c] font-bold">
-                        <span>Total: ${totals.totalPrice.toFixed(2)}</span>
+                        <span>Total: د.إ{totals.totalPrice.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
@@ -784,70 +790,130 @@ const CheckoutPageContent = () => {
 
             {currentStep === 3 && (
               <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
-                {!isStripeReady ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="flex flex-col items-center space-y-4">
-                      <div className="w-12 h-12 border-4 border-[#8e191c]/30 border-t-[#8e191c] rounded-full animate-spin"></div>
-                      <p className="text-[#8e191c] font-medium">Initializing secure payment...</p>
-                    </div>
+                {/* Payment Method Selector */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-black mb-2">Select Payment Method</label>
+                  <div className="flex gap-4 flex-wrap">
+                    <button
+                      type="button"
+                      className={`flex-1 py-2 rounded-lg border font-semibold transition-all duration-200 ${paymentMethod === 'card' ? 'bg-[#8e191c] text-white border-[#8e191c]' : 'bg-white text-[#8e191c] border-gray-300'}`}
+                      onClick={() => setPaymentMethod('card')}
+                    >
+                      Pay by Card
+                    </button>
+                    <button
+                      type="button"
+                      className={`flex-1 py-2 rounded-lg border font-semibold transition-all duration-200 ${paymentMethod === 'cash' ? 'bg-[#8e191c] text-white border-[#8e191c]' : 'bg-white text-[#8e191c] border-gray-300'}`}
+                      onClick={() => setPaymentMethod('cash')}
+                    >
+                      Pay by Cash
+                    </button>
+                    <button
+                      type="button"
+                      className={`flex-1 py-2 rounded-lg border font-semibold transition-all duration-200 ${paymentMethod === 'cheque' ? 'bg-[#8e191c] text-white border-[#8e191c]' : 'bg-white text-[#8e191c] border-gray-300'}`}
+                      onClick={() => setPaymentMethod('cheque')}
+                    >
+                      Pay by Cheque
+                    </button>
+                    <button
+                      type="button"
+                      className={`flex-1 py-2 rounded-lg border font-semibold transition-all duration-200 ${paymentMethod === 'bank_transfer' ? 'bg-[#8e191c] text-white border-[#8e191c]' : 'bg-white text-[#8e191c] border-gray-300'}`}
+                      onClick={() => setPaymentMethod('bank_transfer')}
+                    >
+                      Pay by Bank Transfer
+                    </button>
                   </div>
-                ) : (
-                  <>
-                    <h2 className="text-2xl font-bold text-black mb-6 flex items-center">
-                      <FaLock className="mr-3 text-[#8e191c]" />
-                      Secure Payment
-                    </h2>
-                    <div className="mb-6">
-                      <div className="flex items-center p-4 border-2 border-[#8e191c] bg-[#8e191c]/10 rounded-lg">
-                        <MdContactless className="w-6 h-6 text-[#8e191c] mr-3" />
-                        <span className="text-[#8e191c] font-medium">Credit/Debit Card - Secured by Stripe</span>
+                </div>
+                {/* Payment Forms */}
+                {paymentMethod === 'card' ? (
+                  !isStripeReady ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="flex flex-col items-center space-y-4">
+                        <div className="w-12 h-12 border-4 border-[#8e191c]/30 border-t-[#8e191c] rounded-full animate-spin"></div>
+                        <p className="text-[#8e191c] font-medium">Initializing secure payment...</p>
                       </div>
                     </div>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-black mb-2">
-                          Card Information *
-                        </label>
-                        <StripeCardInput onChange={handleCardChange} />
-                        {cardErrors && (
-                          <p className="mt-2 text-sm text-red-600">{cardErrors}</p>
-                        )}
+                  ) : (
+                    <>
+                      <h2 className="text-2xl font-bold text-black mb-6 flex items-center">
+                        <FaLock className="mr-3 text-[#8e191c]" />
+                        Secure Payment
+                      </h2>
+                      <div className="mb-6">
+                        <div className="flex items-center p-4 border-2 border-[#8e191c] bg-[#8e191c]/10 rounded-lg">
+                          <MdContactless className="w-6 h-6 text-[#8e191c] mr-3" />
+                          <span className="text-[#8e191c] font-medium">Credit/Debit Card - Secured by Stripe</span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                      <div className="flex items-center space-x-2 text-sm text-[#8e191c]">
-                        <FaLock className="text-[#8e191c]" />
-                        <span>Your payment information is encrypted and secure. We never store your card details.</span>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-black mb-2">
+                            Card Information *
+                          </label>
+                          <StripeCardInput onChange={handleCardChange} />
+                          {cardErrors && (
+                            <p className="mt-2 text-sm text-red-600">{cardErrors}</p>
+                          )}
+                        </div>
                       </div>
+                      <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                        <div className="flex items-center space-x-2 text-sm text-[#8e191c]">
+                          <FaLock className="text-[#8e191c]" />
+                          <span>Your payment information is encrypted and secure. We never store your card details.</span>
+                        </div>
+                      </div>
+                    </>
+                  )
+                ) : paymentMethod === 'cash' ? (
+                  <div className="p-6 bg-green-50 border border-green-200 rounded-lg text-green-800 text-center">
+                    <h2 className="text-xl font-bold mb-2">Pay by Cash</h2>
+                    <p className="mb-4">You will pay in cash upon delivery or pickup. Please prepare the exact amount if possible.</p>
+                  </div>
+                ) : paymentMethod === 'cheque' ? (
+                  <div className="p-6 bg-blue-50 border border-blue-200 rounded-lg text-blue-800 text-center">
+                    <h2 className="text-xl font-bold mb-2">Pay by Cheque</h2>
+                    <p className="mb-4">You will pay by cheque upon delivery or pickup. Please have your cheque ready.</p>
+                  </div>
+                ) : paymentMethod === 'bank_transfer' ? (
+                  <div className="p-6 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 text-center">
+                    <h2 className="text-xl font-bold mb-2">Pay by Bank Transfer</h2>
+                    <p className="mb-4">Please transfer the total amount to the following bank account and upload your payment receipt after placing the order:</p>
+                    <div className="bg-white border border-yellow-300 rounded-lg p-4 mb-4 text-left max-w-md mx-auto">
+                      <div><strong>Bank Name:</strong> Emirates NBD</div>
+                      <div><strong>Account Name:</strong> Premier Quality Foods</div>
+                      <div><strong>Account Number:</strong> 1234567890</div>
+                      <div><strong>IBAN:</strong> AE12 3456 7890 1234 5678 90</div>
+                      <div><strong>SWIFT/BIC:</strong> EBILAEAD</div>
                     </div>
-                    <div className="flex space-x-4 mt-6">
-                      <button
-                        type="button"
-                        onClick={() => setCurrentStep(2)}
-                        className="flex-1 py-3 px-6 bg-gray-200 text-black font-semibold rounded-lg hover:bg-gray-300 transition-all duration-200"
-                      >
-                        Back to Review
-                      </button>
-                      <button
-                        onClick={handleSubmit}
-                        disabled={isSubmitting || !cardComplete || cardErrors || !isStripeReady}
-                        className="flex-1 py-3 px-6 bg-[#8e191c] text-white font-semibold rounded-lg hover:bg-[#8e191c]/90 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                      >
-                        {isSubmitting ? (
-                          <>
-                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                            <span className="text-white">Processing Payment...</span>
-                          </>
-                        ) : (
-                          <>
-                            <FaLock className="mr-2 text-white" />
-                            <span className="text-white">Pay {totals.totalPrice.toFixed(2)}</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </>
-                )}
+                    <div className="text-sm text-yellow-700">After payment, please email your receipt to <a href="mailto:orders@premiumqualityfoods.ae" className="underline">orders@premiumqualityfoods.ae</a> with your order number.</div>
+                  </div>
+                ) : null}
+                <div className="flex space-x-4 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(2)}
+                    className="flex-1 py-3 px-6 bg-gray-200 text-black font-semibold rounded-lg hover:bg-gray-300 transition-all duration-200"
+                  >
+                    Back to Review
+                  </button>
+                  <button
+                    onClick={handleSubmit}
+                    disabled={isSubmitting || (paymentMethod === 'card' && (!cardComplete || cardErrors || !isStripeReady))}
+                    className="flex-1 py-3 px-6 bg-[#8e191c] text-white font-semibold rounded-lg hover:bg-[#8e191c]/90 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                        <span className="text-white">Processing Payment...</span>
+                      </>
+                    ) : (
+                      <>
+                        <FaLock className="mr-2 text-white" />
+                        <span className="text-white">{paymentMethod === 'card' ? 'Pay' : 'Place Order'} د.إ{totals.totalPrice.toFixed(2)}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -873,7 +939,7 @@ const CheckoutPageContent = () => {
                       <p className="text-black text-sm">Qty: {item.quantity}</p>
                     </div>
                     <p className="text-black font-semibold text-right">
-                      {(item.price * item.quantity).toFixed(2)}
+                      د.إ{(item.price * item.quantity).toFixed(2)}
                     </p>
                   </div>
                 ))}
@@ -882,12 +948,12 @@ const CheckoutPageContent = () => {
               <div className="border-t border-[#8e191c]/30 pt-4 space-y-2">
                 <div className="flex justify-between text-black">
                   <span>Subtotal</span>
-                  <span>${totals.itemsPrice.toFixed(2)}</span>
+                  <span>د.إ{totals.itemsPrice.toFixed(2)}</span>
                 </div>
                 <div className="border-t border-[#8e191c]/30 pt-2">
                   <div className="flex justify-between text-black font-bold text-lg">
                     <span>Total</span>
-                    <span className="text-[#8e191c]">${totals.totalPrice.toFixed(2)}</span>
+                    <span className="text-[#8e191c]">د.إ{totals.totalPrice.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
