@@ -215,6 +215,29 @@ const getActiveProductsByStoreAndCategory = async (categoryId, params = {}) => {
   return { data: { data: products } };
 };
 
+// Get order details by orderId
+const getOrderDetails = async (orderId) => {
+  if (!orderId) throw new Error('Order ID is required');
+  const response = await api.get(`/web/orders/${orderId}`);
+  return response;
+};
+
+// Download order receipt by orderId
+const downloadOrderReceipt = async (orderId) => {
+  if (!orderId) throw new Error('Order ID is required');
+  const response = await api.get(`/web/orders/${orderId}/receipt`);
+  return response;
+};
+
+export const reorder = async (orderId) => {
+  try {
+    const response = await api.post(`/web/orders/${orderId}/reorder`);
+    return response.data;
+  } catch (error) {
+    console.error('Reorder API error:', error);
+    throw error;
+  }
+};
 const webService = {
   // Banner services
   getActiveBannersByStore,
@@ -242,6 +265,8 @@ const webService = {
   suggestProductNames, // newly added
   searchProducts, // newly added
   getProductsByCategory: getActiveProductsByCategory, // Alias for consistency
+  getOrderDetails, // newly added
+  downloadOrderReceipt, // newly added
 };
 
 export default webService;

@@ -21,6 +21,8 @@ import CheckoutPage from './components/CheckoutPage';
 import Addresses from './UserPages/Addresses';
 import OrderConfirmation from './components/OrderConfirmation';
 import ViewOrdersPage from './UserPages/ViewOrdersPage';
+import OrderDetailsPage from './UserPages/OrderDetailsPage';
+import OrderReceiptPage from './UserPages/OrderReceiptPage';
 import WishlistPage from './ProductsPage/components/WishlistPage';
 import { WishlistProvider } from './context/WishlistContext';
 
@@ -75,6 +77,8 @@ function App() {
                 {/* User routes */}
                 <Route path="/user/addresses" element={<Addresses />} />
                 <Route path="/user/orders" element={<ViewOrdersPage />} />
+                <Route path="/user/orders/:orderId" element={<OrderDetailsPage />} />
+                <Route path="/user/orders/:orderId/receipt" element={<OrderReceiptPage />} />
                 <Route path="/user/reviews" element={<Reviews />} />
                 <Route path="/wishlist" element={<WishlistPage />} />
 

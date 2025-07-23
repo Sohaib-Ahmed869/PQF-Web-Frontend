@@ -3,6 +3,7 @@ import cartService from '../services/cartService';
 import WebService from '../services/Website/WebService';
 import { useAuth } from './AuthContext';
 import { useStore } from './StoreContext';
+import api from '../services/api';
 
 const CartContext = createContext();
 
@@ -220,6 +221,32 @@ export const CartProvider = ({ children }) => {
     });
   };
 
+  // Add reorderItems method
+  const reorderItems = async (orderId) => {
+    if (!isAuthenticated() || !token) {
+      setError('You must be logged in to reorder items.');
+      throw new Error('You must be logged in to reorder items.');
+    }
+    setError(null);
+    try {
+      // Use axios instance to ensure correct baseURL and proxy
+      const response = await api.post(`/web/orders/${orderId}/reorder`);
+      if (!response.data || !response.data.success) {
+        throw new Error('Failed to reorder items');
+      }
+      // Refresh the cart to get the updated state
+      const cartRes = await cartService.getCart(token);
+      const cartData = cartRes.data?.data || cartRes.data || { items: [] };
+      cartData.total = calculateTotal(Array.isArray(cartData.items) ? cartData.items : []);
+      setCart(cartData);
+      return response.data.data;
+    } catch (err) {
+      console.error('Error reordering items:', err);
+      setError('Failed to reorder items');
+      throw err;
+    }
+  };
+
   const value = {
     cart,
     loading,
@@ -233,6 +260,7 @@ export const CartProvider = ({ children }) => {
     isInCart,
     getCartItem,
     setCart,
+    reorderItems, // Added here
   };
 
   return (

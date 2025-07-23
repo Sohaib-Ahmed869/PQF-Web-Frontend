@@ -39,7 +39,7 @@ const OrderConfirmation = () => {
             </ul>
             <div className="border-t border-gray-200 mt-2 pt-2 flex justify-between font-bold">
               <span>Total</span>
-              <span className="text-[#8e191c]">{total ? `$${total.toFixed(2)}` : ''}</span>
+              <span className="text-[#8e191c]">{total ? `د.إ${total.toFixed(2)}` : ''}</span>
             </div>
           </div>
         )}

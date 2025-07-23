@@ -47,7 +47,7 @@ const ViewProduct = ({ product, onBack, onDelete, onEdit, selectedPriceList = 1 
   };
 
   // --- Format price display (same as ProductList) ---
-  const formatPrice = (price) => `€${(price || 0).toFixed(2)}`;
+  const formatPrice = (price) => `د.إ${(price || 0).toFixed(2)}`;
 
   // --- Get price list label ---
   const getPriceListLabel = (priceListId) => {

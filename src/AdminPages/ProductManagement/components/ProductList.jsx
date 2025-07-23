@@ -104,7 +104,7 @@ const ProductList = ({ products: initialProducts, loading, onDelete, onRefresh, 
   // Format price display
   const formatPrice = (product) => {
     const price = getPrice(product);
-    return `€${price.toFixed(2)}`;
+    return `د.إ${price.toFixed(2)}`;
   };
 
   // Get price list label

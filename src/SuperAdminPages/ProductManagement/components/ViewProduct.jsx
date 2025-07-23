@@ -43,7 +43,7 @@ const ViewProduct = ({ product, onBack, onDelete, onEdit }) => {
   };
 
   const formatPrice = (price) => {
-    return `€${(price || 0).toFixed(2)}`;
+    return `د.إ${(price || 0).toFixed(2)}`;
   };
 
   const getPrimaryPrice = () => {
