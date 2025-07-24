@@ -25,6 +25,7 @@ import OrderDetailsPage from './UserPages/OrderDetailsPage';
 import OrderReceiptPage from './UserPages/OrderReceiptPage';
 import WishlistPage from './ProductsPage/components/WishlistPage';
 import { WishlistProvider } from './context/WishlistContext';
+import OrderTracking from './UserPages/OrderTracking';
 
 // Placeholder components for Orders and Reviews
 const Reviews = () => <div className="p-8 text-2xl">Your Reviews (Coming Soon)</div>;
@@ -80,7 +81,10 @@ function App() {
                 <Route path="/user/orders/:orderId" element={<OrderDetailsPage />} />
                 <Route path="/user/orders/:orderId/receipt" element={<OrderReceiptPage />} />
                 <Route path="/user/reviews" element={<Reviews />} />
+                <Route path="/user/order-tracking/:trackingNumber?" element={<OrderTracking />} />
                 <Route path="/wishlist" element={<WishlistPage />} />
+
+                {/* Order Tracking route */}
 
                 <Route path="/" element={<Navigate to="/home" replace />} />
               </Routes>

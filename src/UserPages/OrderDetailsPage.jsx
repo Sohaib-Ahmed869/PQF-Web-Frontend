@@ -20,6 +20,7 @@ import webService from '../services/Website/WebService';
 import UserSidebar from './UserSidebar';
 import ConfirmModal from '../components/ConfirmModal';
 import { useCart } from '../context/CartContext';
+import LoaderOverlay from '../components/LoaderOverlay';
 
 const OrderDetailsPage = () => {
   const { orderId } = useParams();
@@ -86,24 +87,7 @@ const OrderDetailsPage = () => {
   };
 
   if (loading) {
-    return (
-      <Shell>
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="flex flex-col items-center"
-        >
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
-            className="mb-4"
-          >
-            <Package className="w-12 h-12 text-red-600" />
-          </motion.div>
-          <p className="text-lg font-medium text-black/80">Loading order details…</p>
-        </motion.div>
-      </Shell>
-    );
+    return <LoaderOverlay text="Loading order details…" />;
   }
 
   if (error) {
@@ -271,6 +255,15 @@ const OrderDetailsPage = () => {
               >
                 <Download className="w-4 h-4" />
                 View Receipt
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+                onClick={() => navigate(`/user/order-tracking?trackingNumber=${encodeURIComponent(order.trackingNumber || '')}`)}
+              >
+                <Truck className="w-4 h-4" />
+                Track Order
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.05 }}

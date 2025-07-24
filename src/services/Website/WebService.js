@@ -229,6 +229,13 @@ const downloadOrderReceipt = async (orderId) => {
   return response;
 };
 
+// Get order tracking data by orderId
+const getOrderTracking = async (orderId) => {
+  if (!orderId) throw new Error('Order ID is required');
+  const response = await api.get(`/web/orders/${orderId}/tracking`);
+  return response;
+};
+
 export const reorder = async (orderId) => {
   try {
     const response = await api.post(`/web/orders/${orderId}/reorder`);
@@ -267,6 +274,7 @@ const webService = {
   getProductsByCategory: getActiveProductsByCategory, // Alias for consistency
   getOrderDetails, // newly added
   downloadOrderReceipt, // newly added
+  getOrderTracking, // newly added
 };
 
 export default webService;

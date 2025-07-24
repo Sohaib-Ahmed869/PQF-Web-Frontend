@@ -8,6 +8,7 @@ import { reorder as reorderApi } from '../services/Website/WebService';
 import ConfirmModal from '../components/ConfirmModal';
 import { useCart } from '../context/CartContext';
 import cartService from '../services/cartService';
+import LoaderOverlay from '../components/LoaderOverlay';
 
 /**
  * Enhanced ViewOrdersPage – 07‑2025
@@ -157,25 +158,7 @@ const ViewOrdersPage = () => {
   };
 
   if (loading)
-    return (
-      <Shell>
-        <motion.div
-          initial={{ rotate: 0, scale: 0.8 }}
-          animate={{ rotate: 360, scale: 1 }}
-          transition={{ repeat: Infinity, duration: 1.25, ease: "linear" }}
-        >
-          <Loader2 className="w-12 h-12 text-red-600" />
-        </motion.div>
-        <motion.p 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="mt-4 text-lg font-medium text-black/80"
-        >
-          Fetching your orders…
-        </motion.p>
-      </Shell>
-    );
+    return <LoaderOverlay text="Fetching your orders…" />;
 
   if (error)
     return (
@@ -195,14 +178,11 @@ const ViewOrdersPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-rose-50 via-zinc-50 to-gray-100 relative overflow-hidden">
-      {/* Enhanced moving gradient backdrop */}
       <motion.div
         variants={shimmer}
         animate="animate"
         className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,0,128,0.08),transparent_40%),radial-gradient(circle_at_80%_80%,rgba(0,128,255,0.08),transparent_40%),radial-gradient(circle_at_50%_50%,rgba(255,165,0,0.05),transparent_50%)] bg-[length:400%_400%] pointer-events-none"
       />
-
-      {/* Floating decorative elements */}
       <motion.div variants={floatingAnimation} animate="animate" className="absolute top-20 right-20 text-4xl opacity-20">
         📦
       </motion.div>
@@ -218,7 +198,7 @@ const ViewOrdersPage = () => {
       <UserSidebar />
 
       <main className="lg:ml-64 relative z-10 p-6 sm:p-10 max-w-7xl mx-auto">
-        {/* Enhanced Header */}
+      {/* Enhanced Header */}
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}

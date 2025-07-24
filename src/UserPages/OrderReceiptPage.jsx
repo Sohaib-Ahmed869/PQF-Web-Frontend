@@ -6,6 +6,7 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 // Import your actual webService
 import webService from '../services/Website/WebService';
+import LoaderOverlay from '../components/LoaderOverlay';
 
 const formatDate = (dateStr) => {
   if (!dateStr) return '';
@@ -498,14 +499,7 @@ const OrderReceiptPage = () => {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <div className="text-lg font-medium text-gray-700">Loading receipt...</div>
-        </div>
-      </div>
-    );
+    return <LoaderOverlay text="Loading receipt..." />;
   }
 
   if (error) {
