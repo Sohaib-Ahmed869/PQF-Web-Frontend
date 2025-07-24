@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Define baseURL once
-const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const baseURL = import.meta.env.VITE_API_URL || 'https://backendpqf.foodservices.live/api';
 
 // Create axios instance with base configuration
 const api = axios.create({

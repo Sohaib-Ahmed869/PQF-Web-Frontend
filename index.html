@@ -59,23 +59,21 @@
       }
       
       .loading-logo {
-        width: 80px;
-        height: 80px;
-        border: 4px solid #e60012;
+        width: 120px;
+        height: 120px;
+        border: none;
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
         margin-bottom: 20px;
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
         animation: pulse 2s ease-in-out infinite;
-        background: rgba(230, 0, 18, 0.1);
       }
       
       .loading-logo::before {
-        content: '✕';
-        font-size: 32px;
-        font-weight: bold;
-        color: #e60012;
+        content: '';
       }
       
       .loading-text {
@@ -117,12 +115,20 @@
       body.loading {
         overflow: hidden;
       }
+
+      .loading-logo img {
+        width: 140px;
+        height: 140px;
+        object-fit: contain;
+      }
     </style>
   </head>
   <body class="loading">
     <!-- Loading Screen -->
     <div id="loading-screen">
-      <div class="loading-logo"></div>
+      <div class="loading-logo">
+        <img src="/src/assets/PQF-22.png" alt="PQF Logo" />
+      </div>
       <h1 class="loading-text">PREMIER</h1>
       <p class="loading-subtitle">QUALITY FOODS</p>
       <div class="loading-spinner"></div>

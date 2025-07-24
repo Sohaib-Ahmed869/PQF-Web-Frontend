@@ -3,6 +3,7 @@ import { Eye, EyeOff, Mail, Lock, Check, AlertCircle } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import userService from '../services/userService';
+import PQFLogo from '../assets/PQF-22.png';
 
 // Move InputField component outside to prevent re-creation
 const InputField = React.memo(({ type, name, label, icon: Icon, value, onChange, showPassword, onTogglePassword }) => {
@@ -296,10 +297,7 @@ const handleSubmit = async (e) => {
           
           <div className="relative z-10 text-center">
             {/* Enhanced Logo */}
-            <div className="w-20 lg:w-24 h-20 lg:h-24 border-4 border-white rounded-full flex items-center justify-center mb-6 mx-auto bg-white/10 backdrop-blur-sm shadow-lg animate-pulse relative">
-              <div className="text-3xl lg:text-4xl font-bold">✕</div>
-              <div className="absolute inset-0 rounded-full bg-white/5 animate-ping" style={{ animationDuration: '3s' }} />
-            </div>
+            <img src={PQFLogo} alt="PQF Logo" className="w-28 lg:w-36 h-28 lg:h-36 object-contain mb-6 mx-auto animate-pulse" style={{ filter: 'brightness(0) invert(1)' }} />
             
             <h1 className="text-3xl lg:text-4xl font-bold mb-3 tracking-wider drop-shadow-lg">PREMIER</h1>
             <p className="text-lg lg:text-xl opacity-90 mb-6 lg:mb-8 drop-shadow">QUALITY FOODS</p>

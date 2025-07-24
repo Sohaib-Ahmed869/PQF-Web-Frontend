@@ -82,6 +82,7 @@ function App() {
                 <Route path="/user/orders/:orderId/receipt" element={<OrderReceiptPage />} />
                 <Route path="/user/reviews" element={<Reviews />} />
                 <Route path="/user/order-tracking/:trackingNumber?" element={<OrderTracking />} />
+
                 <Route path="/wishlist" element={<WishlistPage />} />
 
                 {/* Order Tracking route */}
