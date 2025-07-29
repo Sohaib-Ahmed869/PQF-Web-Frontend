@@ -67,29 +67,6 @@ const StatusBadge = ({ status, type = 'default' }) => {
   );
 };
 
-const TrackingTimeline = ({ trackingHistory = [] }) => {
-  return (
-    <div className="space-y-3">
-      {trackingHistory.map((item, index) => (
-        <div key={item._id} className="flex items-start space-x-3">
-          <div className="flex-shrink-0">
-            {item.status === 'pending' ? (
-              <Clock className="w-5 h-5 text-yellow-500" />
-            ) : (
-              <CheckCircle className="w-5 h-5 text-green-500" />
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 capitalize">{item.status}</p>
-            <p className="text-xs text-gray-500">{formatDate(item.timestamp)}</p>
-            {item.note && <p className="text-xs text-gray-600 mt-1">{item.note}</p>}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-};
-
 const OrderReceiptPage = () => {
   const { orderId } = useParams();
   const navigate = useNavigate();

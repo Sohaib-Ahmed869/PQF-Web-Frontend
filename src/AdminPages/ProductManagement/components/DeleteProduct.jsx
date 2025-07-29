@@ -183,7 +183,7 @@ const DeleteProduct = ({ product, onClose, onDelete }) => {
       </div>
       
       {/* Custom styles for animations */}
-      <style jsx>{`
+      <style>{`
         @keyframes slide-up {
           from {
             opacity: 0;

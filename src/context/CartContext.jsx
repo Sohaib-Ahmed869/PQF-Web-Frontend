@@ -247,6 +247,31 @@ export const CartProvider = ({ children }) => {
     }
   };
 
+  // Add reorderAbandonedCart method
+  const reorderAbandonedCart = async (cartId) => {
+    if (!isAuthenticated() || !token) {
+      setError('You must be logged in to reorder items.');
+      throw new Error('You must be logged in to reorder items.');
+    }
+    setError(null);
+    try {
+      const response = await api.post(`/web/cart/abandoned/${cartId}/reorder`);
+      if (!response.data || !response.data.success) {
+        throw new Error('Failed to reorder items from abandoned cart');
+      }
+      // Refresh the cart to get the updated state
+      const cartRes = await cartService.getCart(token);
+      const cartData = cartRes.data?.data || cartRes.data || { items: [] };
+      cartData.total = calculateTotal(Array.isArray(cartData.items) ? cartData.items : []);
+      setCart(cartData);
+      return response.data.data;
+    } catch (err) {
+      console.error('Error reordering items from abandoned cart:', err);
+      setError('Failed to reorder items from abandoned cart');
+      throw err;
+    }
+  };
+
   const value = {
     cart,
     loading,
@@ -260,7 +285,8 @@ export const CartProvider = ({ children }) => {
     isInCart,
     getCartItem,
     setCart,
-    reorderItems, // Added here
+    reorderItems,
+    reorderAbandonedCart,
   };
 
   return (

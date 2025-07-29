@@ -9,24 +9,9 @@ import { useStore } from '../context/StoreContext';
 import StoreSelector from '../Homepage/components/StoreSelector';
 import { useAuth } from '../context/AuthContext';
 import { useWishlist } from '../context/WishlistContext';
+import DeepLTranslateWidget from '../components/LanguageSelector';
 
-// Utility to get cached products (same logic as in productService)
-const getCachedProducts = () => {
-  const cache = localStorage.getItem('all_products_cache');
-  const timestamp = localStorage.getItem('all_products_cache_timestamp');
-  const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-  if (cache && timestamp) {
-    const age = Date.now() - Number(timestamp);
-    if (age < CACHE_TTL_MS) {
-      try {
-        return JSON.parse(cache);
-      } catch {
-        return null;
-      }
-    }
-  }
-  return null;
-};
+
 
 const FuturisticNavbar = () => {
   // Move all hooks to the top
@@ -596,6 +581,7 @@ const FuturisticNavbar = () => {
                   </div>
                 </div>
               </button>
+              <DeepLTranslateWidget />
 
               {/* Wishlist Icon */}
               <button
@@ -946,6 +932,10 @@ const FuturisticNavbar = () => {
                 <button onClick={() => setIsMenuOpen(false)}>
                   <X className="w-6 h-6 text-white" />
                 </button>
+              </div>
+              {/* Language Selector (Mobile) */}
+              <div className="mb-4 flex justify-center">
+                <DeepLTranslateWidget />
               </div>
             </div>
 

@@ -1,20 +1,15 @@
 import { NavLink } from 'react-router-dom'
 import { useState } from 'react'
 import {
-  FaHome,
   FaBox,
   FaShoppingCart,
-  FaUsers,
-  FaHeadset,
-  FaChartBar,
-  FaCog,
   FaSignOutAlt,
   FaImages,
-  FaBlog,
   FaBars,
   FaTimes,
   FaTag,
-  FaBoxOpen
+  FaExclamationTriangle,
+  FaCartArrowDown
 } from 'react-icons/fa'
 import logo from "../assets/PQF-22.png"
 
@@ -25,9 +20,10 @@ export default function AdminSidebar() {
   const menuItems = [
     { to: '/admin/banners', icon: FaImages, label: 'Banners' },
     { to: '/admin/categories', icon: FaTag, label: 'Categories' },
-    { to: '/admin/products', icon: FaBoxOpen, label: 'Products' },
-
-
+    { to: '/admin/products', icon: FaBox, label: 'Products' },
+    { to: '/admin/orders', icon: FaShoppingCart, label: 'Orders' },
+    { to: '/admin/disputes', icon: FaExclamationTriangle, label: 'Disputes' },
+    { to: '/admin/abandoned-carts', icon: FaCartArrowDown, label: 'Abandoned Carts' },
   ]
 
   const handleLogout = () => {

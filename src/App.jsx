@@ -26,6 +26,12 @@ import OrderReceiptPage from './UserPages/OrderReceiptPage';
 import WishlistPage from './ProductsPage/components/WishlistPage';
 import { WishlistProvider } from './context/WishlistContext';
 import OrderTracking from './UserPages/OrderTracking';
+import OrderManagement from './AdminPages/OrderManagement/OrderPage';
+import DisputePage from './AdminPages/DisputeManagement/DisputePage';
+import DisputesPage from './UserPages/DisputesPage';
+import AbandonedCartManagement from './AdminPages/AbandonedCartManagement/AbandonedCartPage';
+import AbandonedCartsPage from './UserPages/AbandonedCartsPage';
+import AbandonedCartDetailPage from './UserPages/AbandonedCartDetailPage';
 
 // Placeholder components for Orders and Reviews
 const Reviews = () => <div className="p-8 text-2xl">Your Reviews (Coming Soon)</div>;
@@ -71,15 +77,20 @@ function App() {
                 <Route path="/superAdmin/products" element={<SuperAdminProductPage />} />
                 <Route path="/admin/categories" element={<CategoryPage />} />
                 <Route path="/admin/products" element={<ProductPage />} />
+                <Route path="/admin/orders" element={<OrderManagement />} />
+                <Route path="/admin/disputes" element={<DisputePage />} />
+                <Route path="/admin/abandoned-carts" element={<AbandonedCartManagement />} />
                 <Route path="/cart" element={<Cart />} />
                 <Route path="/checkout" element={<CheckoutPage />} />
                 <Route path="/order-confirmation" element={<OrderConfirmation />} />
-
                 {/* User routes */}
                 <Route path="/user/addresses" element={<Addresses />} />
                 <Route path="/user/orders" element={<ViewOrdersPage />} />
                 <Route path="/user/orders/:orderId" element={<OrderDetailsPage />} />
                 <Route path="/user/orders/:orderId/receipt" element={<OrderReceiptPage />} />
+                <Route path="/user/disputes" element={<DisputesPage />} />
+                <Route path="/user/abandoned-carts" element={<AbandonedCartsPage />} />
+                <Route path="/user/abandoned-carts/:cartId" element={<AbandonedCartDetailPage />} />
                 <Route path="/user/reviews" element={<Reviews />} />
                 <Route path="/user/order-tracking/:trackingNumber?" element={<OrderTracking />} />
 

@@ -1,7 +1,19 @@
 import api from '../api';
 
-// Utility to get selected store ID from localStorage
+// Utility to get selected store ID from localStorage or context
 const getSelectedStoreId = () => {
+  // Try to get from localStorage first
+  const pickupStore = localStorage.getItem('pickup_store');
+  if (pickupStore) {
+    try {
+      const store = JSON.parse(pickupStore);
+      return store._id || store.id;
+    } catch (e) {
+      console.error('Error parsing pickup store:', e);
+    }
+  }
+  
+  // Fallback to selected_store_id
   const id = localStorage.getItem('selected_store_id');
   console.log('Selected Store ID:', id);
   return id;
@@ -23,7 +35,6 @@ const getActiveCategoriesByStore = async () => {
   const response = await api.get('/web/categories/active', {
     params: storeId ? { storeId } : {}
   });
-
   const categories = response.data?.data || response.data || [];
   return { data: { data: categories } };
 };
@@ -77,6 +88,7 @@ const searchActiveProducts = async (searchQuery, params = {}) => {
   if (!searchQuery || typeof searchQuery !== 'string' || searchQuery.trim().length === 0) {
     return { data: { data: [] } };
   }
+  
   const storeId = getSelectedStoreId();
   const response = await api.get('/web/products/active', {
     params: {
@@ -94,7 +106,7 @@ const getFeaturedProducts = async () => {
   return await getTop3ActiveProductsByStore();
 };
 
-// Get store details by ID (if you have individual store endpoint)
+// Get store details by ID
 const getStoreById = async (storeId) => {
   try {
     const response = await api.get(`/web/stores/${storeId}`);
@@ -107,7 +119,7 @@ const getStoreById = async (storeId) => {
   }
 };
 
-// Get category details by ID (if you have individual category endpoint)
+// Get category details by ID
 const getCategoryById = async (categoryId) => {
   try {
     const storeId = getSelectedStoreId();
@@ -123,7 +135,7 @@ const getCategoryById = async (categoryId) => {
   }
 };
 
-// Get product details by ID (if you have individual product endpoint for web)
+// Get product details by ID
 const getProductById = async (productId) => {
   try {
     const storeId = getSelectedStoreId();
@@ -132,7 +144,6 @@ const getProductById = async (productId) => {
     });
     return response;
   } catch (error) {
-    // Fallback - this might not be ideal for performance but provides compatibility
     console.warn('Individual product endpoint not available, consider adding it to your API');
     throw new Error('Product details not available');
   }
@@ -189,6 +200,7 @@ const searchProducts = async (searchQuery, params = {}) => {
   if (!searchQuery || typeof searchQuery !== 'string' || searchQuery.trim().length === 0) {
     return { data: { data: [] } };
   }
+  
   const storeId = getSelectedStoreId();
   const response = await api.get('/web/products/search', {
     params: {
@@ -236,6 +248,7 @@ const getOrderTracking = async (orderId) => {
   return response;
 };
 
+// Reorder function
 export const reorder = async (orderId) => {
   try {
     const response = await api.post(`/web/orders/${orderId}/reorder`);
@@ -245,36 +258,45 @@ export const reorder = async (orderId) => {
     throw error;
   }
 };
+
+// Get user's abandoned carts
+const getUserAbandonedCarts = async () => {
+  try {
+    const response = await api.get('/web/cart/abandoned/my');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching user abandoned carts:', error);
+    throw error;
+  }
+};
 const webService = {
-  // Banner services
+  // Store and category services
   getActiveBannersByStore,
-  
-  // Category services
   getActiveCategoriesByStore,
-  getCategoryById,
-  getCategoriesWithItemCount,
-  
-  // Store services
   getActiveStores,
-  getStoreById,
-  
-  // Product services
   getTop3ActiveProductsByStore,
   getActiveProductsByStore,
   getActiveProductsByCategory,
   searchActiveProducts,
   getFeaturedProducts,
+  getStoreById,
+  getCategoryById,
   getProductById,
   getActiveProductsPaginated,
+  getCategoriesWithItemCount,
+  suggestProductNames,
+  searchProducts,
   getActiveProductsByStoreAndCategory,
-  
+
+  // Order services
+  getOrderDetails,
+  downloadOrderReceipt,
+  getOrderTracking,
+  reorder,
   // Utility methods
-  suggestProductNames, // newly added
-  searchProducts, // newly added
-  getProductsByCategory: getActiveProductsByCategory, // Alias for consistency
-  getOrderDetails, // newly added
-  downloadOrderReceipt, // newly added
-  getOrderTracking, // newly added
+  getSelectedStoreId,
+  getUserAbandonedCarts,
+
 };
 
 export default webService;

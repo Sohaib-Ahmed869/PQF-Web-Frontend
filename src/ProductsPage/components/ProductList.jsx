@@ -424,25 +424,7 @@ const ProductListPage = () => {
             {productCode && <p className="text-gray-500 font-medium text-xs">Code: {productCode}</p>}
           </div>
 
-          {/* Rating */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center">
-              {[...Array(5)].map((_, i) => (
-                <Star
-                  key={i}
-                  size={14}
-                  className={`$${
-                    i < Math.floor(product.rating)
-                      ? 'fill-yellow-400 text-yellow-400'
-                      : 'text-gray-300'
-                  }`}
-                />
-              ))}
-            </div>
-            <span className="text-sm text-gray-600">
-              {product.rating} ({product.reviews})
-            </span>
-          </div>
+
 
           {/* Price */}
           <div className="flex items-center justify-between">

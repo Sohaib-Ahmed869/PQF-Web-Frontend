@@ -16,7 +16,9 @@ import {
   FaTag,
   FaBoxOpen,
   FaMapMarkerAlt,
-  FaStar
+  FaStar,
+  FaExclamationTriangle,
+  FaCartArrowDown
 } from 'react-icons/fa'
 import logo from "../assets/PQF-22.png"
 
@@ -29,6 +31,8 @@ export default function UserSidebar() {
   const menuItems = [
     { to: '/user/addresses', icon: FaMapMarkerAlt, label: 'Addresses', show: true },
     { to: '/user/orders', icon: FaBox, label: 'Orders', show: isLoggedIn },
+    { to: '/user/abandoned-carts', icon: FaCartArrowDown, label: 'Abandoned Carts', show: isLoggedIn },
+    { to: '/user/disputes', icon: FaExclamationTriangle, label: 'Disputes', show: isLoggedIn },
   ];
 
   const handleLogout = () => {

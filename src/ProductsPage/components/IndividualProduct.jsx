@@ -55,7 +55,6 @@ const IndividualProductPage = () => {
   const { isInWishlist, toggleWishlist } = useWishlist();
   const [showNotification, setShowNotification] = useState(false);
   const [hoveredFeature, setHoveredFeature] = useState(null);
-  const [activeTab, setActiveTab] = useState('Description');
   const { addToCart } = useCart();
   const [addingToCart, setAddingToCart] = useState(false);
   const [addToCartError, setAddToCartError] = useState(null);
@@ -192,15 +191,6 @@ const IndividualProductPage = () => {
   const stock = getStock(product);
   const productName = getProductName(product);
   const productCode = getProductCode(product);
-  // Dynamic highlights
-  const highlights = product.highlights && Array.isArray(product.highlights) && product.highlights.length > 0
-    ? product.highlights
-    : [
-        product.frozen === 'tYES' || product.Frozen === 'tYES' ? 'Frozen Product' : null,
-        'No Artificial Preservatives',
-        'Fresh Daily Preparation',
-        'Premium Quality Meat'
-      ].filter(Boolean);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-red-50 relative overflow-hidden">
@@ -342,25 +332,7 @@ const IndividualProductPage = () => {
                 </span>
               </h1>
               
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-1">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      size={20}
-                      className={`${
-                        i < Math.floor(rating)
-                          ? 'fill-yellow-400 text-yellow-400'
-                          : 'text-gray-300'
-                      }`}
-                    />
-                  ))}
-                  <span className="ml-2 text-lg font-medium text-gray-700">
-                    {rating}
-                  </span>
-                </div>
-                <span className="text-gray-500">({reviews} reviews)</span>
-              </div>
+
             </div>
 
             {/* Pricing */}
@@ -451,162 +423,17 @@ const IndividualProductPage = () => {
                   </p>
                 </div>
               )}
-            </div>
+                         </div>
 
-            {/* Detailed Product Information Tabs */}
-            <div className="space-y-6">
-              {/* Tab Navigation */}
-              <div className="flex gap-2 bg-gray-100 p-2 rounded-xl">
-                {["Description", "Reviews"].map((tab, index) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 flex-1 text-sm ${
-                      activeTab === tab
-                        ? 'text-white shadow-lg scale-105'
-                        : 'text-gray-600 hover:text-white hover:bg-white/50'
-                    }`}
-                    style={activeTab === tab ? { backgroundColor: '#8e191c' } : { color: activeTab === tab ? '#fff' : undefined }}
-                  >
-                    {tab}
-                  </button>
-                ))}
-              </div>
+             {/* Product Description */}
+             <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-gray-100">
+               <h3 className="text-xl font-bold text-gray-800 mb-4">Product Description</h3>
+               <p className="text-gray-600 leading-relaxed">{description}</p>
+             </div>
 
-              {/* Tab Content */}
-              <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-gray-100 min-h-[400px]">
-                {/* Description Tab */}
-                {activeTab === 'Description' && (
-                  <div className="space-y-4">
-                    <h3 className="text-xl font-bold text-gray-800">Product Description</h3>
-                    <p className="text-gray-600 leading-relaxed">{description}</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                      {/* Product Highlights - now dynamic */}
-                      <div>
-                        <h4 className="font-semibold text-gray-800 mb-3">Product Highlights:</h4>
-                        <ul className="space-y-2 text-sm text-gray-600">
-                          {highlights.map((highlight, idx) => (
-                            <li key={idx} className="flex items-center gap-2">
-                              <div className="w-2 h-2 bg-green-500 rounded-full" />
-                              {highlight}
-                            </li>
-                          ))}
-                        </ul>
-                        {/* Improved Valid and Availability Status */}
-                        <div className="mt-6 p-4 rounded-xl border border-gray-200 bg-gray-50 flex flex-col gap-2 w-full max-w-xs">
-                          <div className="font-semibold text-gray-800 mb-1 text-base">Product Status</div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-gray-700 font-medium">Valid:</span>
-                            {product.valid === 'tYES' || product.Valid === 'tYES' ? (
-                              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-100 border border-green-300 text-green-700 text-sm font-semibold">
-                                <CheckCircle size={16} className="text-green-500" /> Yes
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-100 border border-red-300 text-red-700 text-sm font-semibold">
-                                <XCircle size={16} className="text-red-500" /> No
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-gray-700 font-medium">Available:</span>
-                            {product.isAvailable ? (
-                              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-100 border border-green-300 text-green-700 text-sm font-semibold">
-                                <CheckCircle size={16} className="text-green-500" /> Yes
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-100 border border-red-300 text-red-700 text-sm font-semibold">
-                                <XCircle size={16} className="text-red-500" /> No
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Reviews Tab */}
-                {activeTab === 'Reviews' && (
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-xl font-bold text-gray-800">Customer Reviews</h3>
-                      <button className="px-4 py-2 rounded-lg text-sm font-medium hover:shadow-lg transition-colors" style={{ backgroundColor: '#8e191c', color: '#fff' }}>
-                        Write a Review
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className="bg-gray-50 p-4 rounded-xl text-center">
-                        <div className="text-3xl font-bold text-gray-800">{rating}</div>
-                        <div className="flex justify-center mt-1">
-                          {[...Array(5)].map((_, i) => (
-                            <Star
-                              key={i}
-                              size={16}
-                              className={`${
-                                i < Math.floor(rating)
-                                  ? 'fill-yellow-400 text-yellow-400'
-                                  : 'text-gray-300'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                        <div className="text-sm text-gray-600 mt-1">Based on {reviews} reviews</div>
-                      </div>
-                      <div className="md:col-span-2 space-y-3">
-                        {[5,4,3,2,1].map((stars) => (
-                          <div key={stars} className="flex items-center gap-3">
-                            <span className="text-sm w-8">{stars}★</span>
-                            <div className="flex-1 bg-gray-200 rounded-full h-2">
-                              <div 
-                                className="bg-yellow-400 h-2 rounded-full"
-                                style={{ width: `${stars === 5 ? 60 : stars === 4 ? 25 : stars === 3 ? 10 : stars === 2 ? 3 : 2}%` }}
-                              />
-                            </div>
-                            <span className="text-sm text-gray-600 w-8">
-                              {stars === 5 ? 85 : stars === 4 ? 36 : stars === 3 ? 14 : stars === 2 ? 4 : 3}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      <h4 className="font-semibold text-gray-800">Recent Reviews</h4>
-                      {[
-                        { name: "Ahmed K.", rating: 5, date: "2 days ago", comment: "Excellent quality kebab! The meat is tender and the spice blend is perfect. Will definitely order again." },
-                        { name: "Sarah M.", rating: 4, date: "1 week ago", comment: "Good product overall. The red sauce complements the meat well. Delivery was quick and packaging was secure." },
-                        { name: "Hassan A.", rating: 5, date: "2 weeks ago", comment: "Best kebab I've had! Fresh, authentic taste and great value for money. Highly recommended." }
-                      ].map((review, index) => (
-                        <div key={index} className="bg-white p-4 rounded-xl border border-gray-100">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-gray-800">{review.name}</span>
-                              <div className="flex">
-                                {[...Array(5)].map((_, i) => (
-                                  <Star
-                                    key={i}
-                                    size={14}
-                                    className={`${
-                                      i < review.rating
-                                        ? 'fill-yellow-400 text-yellow-400'
-                                        : 'text-gray-300'
-                                    }`}
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                            <span className="text-sm text-gray-500">{review.date}</span>
-                          </div>
-                          <p className="text-gray-600 text-sm">{review.comment}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+           </div>
+         </div>
+       </div>
       <LoginModal
         show={showLoginModal}
         onClose={() => setShowLoginModal(false)}

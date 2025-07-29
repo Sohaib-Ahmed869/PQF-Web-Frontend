@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { FaPlus, FaEdit, FaTrash, FaMapMarkerAlt, FaGlobe, FaStar, FaSearch, FaFilter, FaTimes } from 'react-icons/fa'
 import UserSidebar from './UserSidebar'
 import userService from '../services/userService'
+import LoaderOverlay from '../components/LoaderOverlay'
 
 export default function Addresses() {
   const [addresses, setAddresses] = useState([])
@@ -247,22 +248,7 @@ export default function Addresses() {
 
             {/* Loading State */}
             {isLoading && (
-              <div className="flex flex-col items-center justify-center py-16">
-                <div className="relative">
-                  {/* Outer ring */}
-                  <div className="w-16 h-16 border-4 border-red-600/20 rounded-full animate-spin"></div>
-                  {/* Inner ring */}
-                  <div className="absolute top-0 left-0 w-16 h-16 border-4 border-transparent border-t-black rounded-full animate-spin"></div>
-                  {/* Center dot */}
-                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-red-600 rounded-full"></div>
-                </div>
-                <p className="text-black mt-4 text-lg font-medium">Loading your addresses...</p>
-                <div className="flex space-x-1 mt-2">
-                  <div className="w-2 h-2 bg-black rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-red-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                  <div className="w-2 h-2 bg-black rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                </div>
-              </div>
+              <LoaderOverlay text="Loading your addresses..." />
             )}
 
             {/* Form Modal */}

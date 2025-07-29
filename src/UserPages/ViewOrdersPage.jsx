@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Search, TrendingUp, Package, Clock, DollarSign, Filter, Calendar, Star } from "lucide-react";
+import { Loader2, Search, TrendingUp, Package, Clock, DollarSign, Filter, Calendar, Star, AlertTriangle, CheckCircle, X } from "lucide-react";
 import UserSidebar from "./UserSidebar";
 import api from "../services/api";
-import { reorder as reorderApi } from '../services/Website/WebService';
+import webService from '../services/Website/WebService';
 import ConfirmModal from '../components/ConfirmModal';
 import { useCart } from '../context/CartContext';
-import cartService from '../services/cartService';
 import LoaderOverlay from '../components/LoaderOverlay';
+import { useAuth } from "../context/AuthContext";
 
 /**
  * Enhanced ViewOrdersPage – 07‑2025
@@ -59,6 +59,7 @@ const paymentStatusLabelMap = {
 
 const ViewOrdersPage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -72,12 +73,34 @@ const ViewOrdersPage = () => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [addedItems, setAddedItems] = useState([]);
 
+  // Dispute states
+  const [showDisputeModal, setShowDisputeModal] = useState(false);
+  const [disputeForm, setDisputeForm] = useState({
+    email: user?.email || '',
+    category: '',
+    description: ''
+  });
+  const [disputeFormErrors, setDisputeFormErrors] = useState({});
+  const [processingAction, setProcessingAction] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [showDisputeSuccess, setShowDisputeSuccess] = useState(false);
+
+  // Update dispute form email when user changes
+  useEffect(() => {
+    if (user?.email) {
+      setDisputeForm(prev => ({ ...prev, email: user.email }));
+    }
+  }, [user?.email]);
+
   useEffect(() => {
     const getOrders = async () => {
       try {
         const token = localStorage.getItem("token");
         if (!token) return navigate("/login");
         const { data } = await api.get("/web/orders/my");
+        console.log('Fetched orders:', data.data);
+        console.log('First order dispute data:', data.data?.[0]?.dispute);
+        console.log('All orders dispute data:', data.data?.map(order => ({ orderId: order.orderId, dispute: order.dispute })));
         setOrders(data.data ?? []);
       } catch (e) {
         setError(
@@ -89,6 +112,88 @@ const ViewOrdersPage = () => {
     };
     getOrders();
   }, [navigate]);
+
+  // Validate dispute form
+  const validateDisputeForm = () => {
+    const errors = {};
+    
+    if (!disputeForm.email.trim()) {
+      errors.email = 'Email is required';
+    }
+    
+    if (!disputeForm.category) {
+      errors.category = 'Please select a category';
+    }
+    
+    if (!disputeForm.description.trim()) {
+      errors.description = 'Description is required';
+    } else if (disputeForm.description.trim().length < 10) {
+      errors.description = 'Description must be at least 10 characters long';
+    }
+    
+    setDisputeFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Handle dispute creation
+  const handleCreateDispute = async (orderId) => {
+    // Validate form before submission
+    if (!validateDisputeForm()) {
+      return;
+    }
+
+    try {
+      setProcessingAction(true);
+      const response = await webService.createCustomerDispute(orderId, disputeForm);
+      
+      if (response.success) {
+        setSuccessMessage('Dispute created successfully!');
+        setShowDisputeSuccess(true);
+        setShowDisputeModal(false);
+        setDisputeForm({ email: '', category: '', description: '' });
+        setDisputeFormErrors({});
+        
+        // Refresh orders to show updated dispute status
+        const { data } = await api.get("/web/orders/my");
+        setOrders(data.data ?? []);
+        
+        setTimeout(() => setShowDisputeSuccess(false), 3000);
+      }
+    } catch (error) {
+      console.error('Dispute creation error:', error);
+      
+      // Handle specific error messages
+      let errorMessage = 'Failed to create dispute';
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
+      setShowDisputeModal(false);
+    } finally {
+      setProcessingAction(false);
+    }
+  };
+
+  // Handle dispute button click
+  const handleDisputeClick = (orderId) => {
+    console.log('Dispute clicked for orderId:', orderId);
+    const order = orders.find(o => o.orderId === orderId);
+    console.log('Found order:', order);
+    
+    // Check if order already has an active dispute (not closed/resolved)
+    if (order.dispute && order.dispute.status && 
+        order.dispute.status !== 'none' && 
+        !['resolved', 'closed', 'rejected'].includes(order.dispute.status.toLowerCase())) {
+      setError('This order already has an active dispute');
+      return;
+    }
+    
+    setSelectedOrder(order);
+    setShowDisputeModal(true);
+  };
 
   // Calculate stats
   const stats = React.useMemo(() => {
@@ -197,146 +302,153 @@ const ViewOrdersPage = () => {
 
       <UserSidebar />
 
-      <main className="lg:ml-64 relative z-10 p-6 sm:p-10 max-w-7xl mx-auto">
-      {/* Enhanced Header */}
-        <motion.div 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-10"
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 mb-8">
-            <div>
-              <h1 className="text-4xl font-extrabold tracking-tight text-black drop-shadow-sm">
-                My Orders
-              </h1>
-              <p className="text-black/70 mt-1">Track your recent & past orders</p>
-            </div>
-
-            {/* Enhanced Search */}
+      <main className="lg:ml-64 relative z-10 p-6 sm:p-10 max-w-7xl mx-auto min-h-[60vh]">
+        {loading && (
+          <LoaderOverlay text="Fetching your orders…" />
+        )}
+        {!loading && (
+          <>
+            {/* Enhanced Header */}
             <motion.div 
-              whileHover={{ scale: 1.02 }}
-              className="relative w-full sm:w-72"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-10"
             >
-              <Search className="absolute w-5 h-5 top-1/2 left-4 -translate-y-1/2 text-red-500/80" />
-              <input
-                aria-label="Search orders"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search orders…"
-                className="w-full pl-12 pr-4 py-3 rounded-2xl bg-white/60 backdrop-blur-md border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-black placeholder:text-zinc-500 shadow-lg transition-all duration-200"
-              />
-            </motion.div>
-          </div>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 mb-8">
+                <div>
+                  <h1 className="text-4xl font-extrabold tracking-tight text-black drop-shadow-sm">
+                    My Orders
+                  </h1>
+                  <p className="text-black/70 mt-1">Track your recent & past orders</p>
+                </div>
 
-          {/* Stats Dashboard */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8"
-          >
-            <StatCard
-              icon={<Package className="w-6 h-6" />}
-              title="Total Orders"
-              value={stats.totalOrders}
-              color="blue"
-            />
-            <StatCard
-              icon={<DollarSign className="w-6 h-6" />}
-              title="Total Spent"
-              value={`د.إ${stats.totalSpent.toFixed(2)}`}
-              color="green"
-            />
-            <StatCard
-              icon={<TrendingUp className="w-6 h-6" />}
-              title="Avg Order"
-              value={`د.إ${stats.avgOrderValue.toFixed(2)}`}
-              color="purple"
-            />
-            <StatCard
-              icon={<Star className="w-6 h-6" />}
-              title="Paid Orders"
-              value={stats.paidOrders}
-              color="yellow"
-            />
-            <StatCard
-              icon={<Clock className="w-6 h-6" />}
-              title="Recent (30d)"
-              value={stats.recentOrders}
-              color="red"
-            />
-          </motion.div>
-
-          {/* Filters */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="flex flex-wrap gap-4 items-center"
-          >
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-zinc-600" />
-              <span className="text-sm font-medium text-zinc-700">Filter:</span>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-3 py-1 rounded-lg bg-white/60 backdrop-blur-md border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-              >
-                <option value="all">All Status</option>
-                <option value="paid">Paid</option>
-                <option value="pending">Pending</option>
-              </select>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-zinc-600" />
-              <span className="text-sm font-medium text-zinc-700">Sort:</span>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="px-3 py-1 rounded-lg bg-white/60 backdrop-blur-md border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-              >
-                <option value="newest">Newest First</option>
-                <option value="oldest">Oldest First</option>
-                <option value="highest">Highest Amount</option>
-                <option value="lowest">Lowest Amount</option>
-              </select>
-            </div>
-          </motion.div>
-        </motion.div>
-
-        {/* Orders Grid */}
-        <AnimatePresence mode="wait">
-          {processedOrders.length === 0 ? (
-            <motion.div
-              key="empty"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-            >
-              <EnhancedEmptyState search={!!search} />
-            </motion.div>
-          ) : (
-            <motion.section 
-              key="orders"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8"
-            >
-              {processedOrders.map((order, index) => (
-                <motion.div
-                  key={order.orderId}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
+                {/* Enhanced Search */}
+                <motion.div 
+                  whileHover={{ scale: 1.02 }}
+                  className="relative w-full sm:w-72"
                 >
-                  <EnhancedOrderCard order={order} onReorder={() => { setSelectedOrder(order); setShowConfirm(true); }} />
+                  <Search className="absolute w-5 h-5 top-1/2 left-4 -translate-y-1/2 text-red-500/80" />
+                  <input
+                    aria-label="Search orders"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search orders…"
+                    className="w-full pl-12 pr-4 py-3 rounded-2xl bg-white/60 backdrop-blur-md border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-black placeholder:text-zinc-500 shadow-lg transition-all duration-200"
+                  />
                 </motion.div>
-              ))}
-            </motion.section>
-          )}
-        </AnimatePresence>
+              </div>
+
+              {/* Stats Dashboard */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8"
+              >
+                <StatCard
+                  icon={<Package className="w-6 h-6" />}
+                  title="Total Orders"
+                  value={stats.totalOrders}
+                  color="blue"
+                />
+                <StatCard
+                  icon={<DollarSign className="w-6 h-6" />}
+                  title="Total Spent"
+                  value={`د.إ${stats.totalSpent.toFixed(2)}`}
+                  color="green"
+                />
+                <StatCard
+                  icon={<TrendingUp className="w-6 h-6" />}
+                  title="Avg Order"
+                  value={`د.إ${stats.avgOrderValue.toFixed(2)}`}
+                  color="purple"
+                />
+                <StatCard
+                  icon={<Star className="w-6 h-6" />}
+                  title="Paid Orders"
+                  value={stats.paidOrders}
+                  color="yellow"
+                />
+                <StatCard
+                  icon={<Clock className="w-6 h-6" />}
+                  title="Recent (30d)"
+                  value={stats.recentOrders}
+                  color="red"
+                />
+              </motion.div>
+
+              {/* Filters */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="flex flex-wrap gap-4 items-center"
+              >
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-zinc-600" />
+                  <span className="text-sm font-medium text-zinc-700">Filter:</span>
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className="px-3 py-1 rounded-lg bg-white/60 backdrop-blur-md border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="paid">Paid</option>
+                    <option value="pending">Pending</option>
+                  </select>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-zinc-600" />
+                  <span className="text-sm font-medium text-zinc-700">Sort:</span>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="px-3 py-1 rounded-lg bg-white/60 backdrop-blur-md border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                  >
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="highest">Highest Amount</option>
+                    <option value="lowest">Lowest Amount</option>
+                  </select>
+                </div>
+              </motion.div>
+            </motion.div>
+
+            {/* Orders Grid */}
+            <AnimatePresence mode="wait">
+              {processedOrders.length === 0 ? (
+                <motion.div
+                  key="empty"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                >
+                  <EnhancedEmptyState search={!!search} />
+                </motion.div>
+              ) : (
+                <motion.section 
+                  key="orders"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8"
+                >
+                  {processedOrders.map((order, index) => (
+                    <motion.div
+                      key={order.orderId}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                    >
+                      <EnhancedOrderCard order={order} onReorder={() => { setSelectedOrder(order); setShowConfirm(true); }} onDispute={handleDisputeClick} />
+                    </motion.div>
+                  ))}
+                </motion.section>
+              )}
+            </AnimatePresence>
+          </>
+        )}
       </main>
       <ConfirmModal
         open={showConfirm}
@@ -401,6 +513,105 @@ const ViewOrdersPage = () => {
         confirmText="Go to Cart"
         cancelText="Close"
       />
+        {/* Dispute Modal */}
+        {showDisputeModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <div className="flex items-center gap-3">
+                  <div className="bg-red-100 p-2 rounded-xl">
+                    <AlertTriangle className="w-6 h-6 text-red-600" />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900">Create Dispute</h2>
+                </div>
+                <button
+                  onClick={() => setShowDisputeModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="p-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                    <input
+                      type="email"
+                      value={disputeForm.email}
+                      onChange={(e) => setDisputeForm(prev => ({ ...prev, email: e.target.value }))}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${disputeFormErrors.email ? 'border-red-500' : ''}`}
+                      placeholder="Your email address"
+                    />
+                    {disputeFormErrors.email && (
+                      <p className="text-xs text-red-500 mt-1">{disputeFormErrors.email}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                    <select
+                      value={disputeForm.category}
+                      onChange={(e) => setDisputeForm(prev => ({ ...prev, category: e.target.value }))}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${disputeFormErrors.category ? 'border-red-500' : ''}`}
+                    >
+                      <option value="">Select a category</option>
+                      <option value="Wrong item received">Wrong item received</option>
+                      <option value="Damaged item">Damaged item</option>
+                      <option value="Quality issues">Quality issues</option>
+                      <option value="Delivery problems">Delivery problems</option>
+                      <option value="Billing issues">Billing issues</option>
+                      <option value="Other">Other</option>
+                    </select>
+                    {disputeFormErrors.category && (
+                      <p className="text-xs text-red-500 mt-1">{disputeFormErrors.category}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                    <textarea
+                      value={disputeForm.description}
+                      onChange={(e) => setDisputeForm(prev => ({ ...prev, description: e.target.value }))}
+                      rows={4}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${disputeFormErrors.description ? 'border-red-500' : ''}`}
+                      placeholder="Please describe the issue in detail..."
+                    />
+                    {disputeFormErrors.description && (
+                      <p className="text-xs text-red-500 mt-1">{disputeFormErrors.description}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+                <button
+                  onClick={() => setShowDisputeModal(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleCreateDispute(selectedOrder?.orderId)}
+                  disabled={processingAction || !disputeForm.email || !disputeForm.category || !disputeForm.description || disputeForm.description.trim().length < 10}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                >
+                  {processingAction ? 'Creating...' : 'Create Dispute'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Success Message */}
+        {showDisputeSuccess && (
+          <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5" />
+              <span>{successMessage}</span>
+            </div>
+          </div>
+        )}
     </div>
   );
 };
@@ -491,7 +702,7 @@ const EnhancedEmptyState = ({ search }) => (
   </div>
 );
 
-const EnhancedOrderCard = ({ order, onReorder }) => {
+const EnhancedOrderCard = ({ order, onReorder, onDispute }) => {
   const navigate = useNavigate();
   const [isHovered, setIsHovered] = useState(false);
   
@@ -502,6 +713,19 @@ const EnhancedOrderCard = ({ order, onReorder }) => {
   const paymentStatus = order.paymentStatus?.toLowerCase() || "pending";
   const paymentColor = paymentStatusColorMap[paymentStatus] || "bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 border-gray-300";
   const paymentLabel = paymentStatusLabelMap[paymentStatus] || order.paymentStatus || "Pending";
+
+  // Check if order has existing dispute
+  const hasDispute = order.dispute && order.dispute.status && order.dispute.status !== 'none';
+  
+  // Check if dispute is closed (resolved, closed, or rejected)
+  const isDisputeClosed = order.dispute && order.dispute.status && 
+    ['resolved', 'closed', 'rejected'].includes(order.dispute.status.toLowerCase());
+  
+  // Check if there's an active dispute (not closed/resolved)
+  const hasActiveDispute = hasDispute && !isDisputeClosed;
+  
+  // Show dispute button only if no dispute exists OR if dispute is closed
+  const canCreateDispute = !hasActiveDispute;
 
   return (
     <motion.div
@@ -535,6 +759,21 @@ const EnhancedOrderCard = ({ order, onReorder }) => {
             <span className={`px-3 py-1 rounded-full border ${paymentColor}`}>{paymentLabel}</span>
           </span>
         </motion.div>
+
+        {/* Dispute Status Indicators */}
+        {hasDispute && (
+          <div className="flex gap-2">
+            <span className={`px-2 py-1 rounded-full text-xs font-medium border flex items-center gap-1 ${
+              isDisputeClosed 
+                ? 'bg-green-100 text-green-800 border-green-300' 
+                : 'bg-red-100 text-red-800 border-red-300'
+            }`}>
+              <AlertTriangle className="w-3 h-3" />
+              Dispute: {order.dispute.status}
+              {order.dispute.category && ` (${order.dispute.category})`}
+            </span>
+          </div>
+        )}
 
         {/* Meta Info */}
         <div className="flex items-center justify-between text-xs text-zinc-600 mb-1">
@@ -617,7 +856,7 @@ const EnhancedOrderCard = ({ order, onReorder }) => {
         </div>
 
         {/* Enhanced Action Buttons */}
-        <div className="flex gap-3 pt-4 mt-auto">
+        <div className="flex gap-2 pt-4 mt-auto">
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
@@ -635,6 +874,39 @@ const EnhancedOrderCard = ({ order, onReorder }) => {
             Reorder
           </motion.button>
         </div>
+
+        {/* Dispute Button Only */}
+        {canCreateDispute && (
+          <div className="flex gap-2 pt-2">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold py-2 px-3 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl text-xs"
+              onClick={() => onDispute(order.orderId)}
+            >
+              <AlertTriangle className="w-3 h-3 inline mr-1" />
+              {hasDispute && isDisputeClosed ? 'Create New Dispute' : 'Dispute'}
+            </motion.button>
+          </div>
+        )}
+
+        {/* Show message if order has active dispute */}
+        {hasActiveDispute && (
+          <div className="pt-2">
+            <div className="text-xs text-gray-500 text-center bg-gray-50 rounded-lg p-2">
+              <span>This order has an active dispute</span>
+            </div>
+          </div>
+        )}
+
+        {/* Show message if order has closed dispute */}
+        {hasDispute && isDisputeClosed && (
+          <div className="pt-2">
+            <div className="text-xs text-green-600 text-center bg-green-50 rounded-lg p-2">
+              <span>Previous dispute was {order.dispute.status}</span>
+            </div>
+          </div>
+        )}
       </div>
     </motion.div>
   );
