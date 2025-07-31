@@ -3,6 +3,15 @@ import { GOOGLE_AUTH_URL } from './api';
 
 class UserService {
   async register(userData) {
+    // Check if userData is FormData (for file uploads)
+    if (userData instanceof FormData) {
+      return api.post('/users/register', userData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+    }
+    // Regular JSON data
     return api.post('/users/register', userData);
   }
 
@@ -71,6 +80,10 @@ class UserService {
     const params = {};
     if (type) params.type = type;
     return api.get('/users/address', { params });
+  }
+
+  async updateDocumentVerification(userId, verificationData) {
+    return api.put(`/users/${userId}/document-verification`, verificationData);
   }
 
   // Wishlist management

@@ -78,14 +78,9 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       const response = await userService.register(userData);
-      if (response.data && response.data.token) {
-        const { token: newToken, user: userData } = response.data;
-        setToken(newToken);
-        setUser(userData);
-        localStorage.setItem('token', newToken);
-        localStorage.setItem('user', JSON.stringify(userData));
-        return { success: true, data: response.data };
-      }
+      // Don't automatically log the user in after registration
+      // Let them navigate to login page instead
+      return { success: true, data: response.data };
     } catch (error) {
       console.error('Registration error:', error);
       throw error;

@@ -60,7 +60,12 @@ const PremierRegistration = () => {
     email: '',
     phone: '',
     password: '',
-    agreeToTerms: false
+    agreeToTerms: false,
+    agreeToPrivacy: false
+  });
+  const [documents, setDocuments] = useState({
+    tradeLicense: null,
+    idDocument: null
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -117,6 +122,16 @@ const PremierRegistration = () => {
     }));
   }, []);
 
+  const handleFileChange = React.useCallback((e, documentType) => {
+    const file = e.target.files[0];
+    if (file) {
+      setDocuments(prev => ({
+        ...prev,
+        [documentType]: file
+      }));
+    }
+  }, []);
+
   // Stable callback for password toggle
   const handleTogglePassword = React.useCallback(() => {
     setShowPassword(prev => !prev);
@@ -156,30 +171,34 @@ const PremierRegistration = () => {
     setIsLoading(true);
     
     try {
-      // Prepare user data for registration
-      const userData = {
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-        phone: formData.phone,
-        role: 'customer', 
-        agreeToTerms: formData.agreeToTerms,
-        agreeToPrivacy: formData.agreeToTerms 
-      };
+      // Create FormData for file uploads
+      const formDataToSend = new FormData();
       
-      // Add phone if provided
-      if (formData.phone) {
-        userData.phone = formData.phone;
+      // Add form fields
+      formDataToSend.append('name', formData.name);
+      formDataToSend.append('email', formData.email);
+      formDataToSend.append('password', formData.password);
+      formDataToSend.append('phone', formData.phone);
+      formDataToSend.append('role', 'customer');
+      formDataToSend.append('agreeToTerms', formData.agreeToTerms);
+      formDataToSend.append('agreeToPrivacy', formData.agreeToPrivacy);
+      
+      // Add files if they exist
+      if (documents.tradeLicense) {
+        formDataToSend.append('tradeLicense', documents.tradeLicense);
+      }
+      if (documents.idDocument) {
+        formDataToSend.append('idDocument', documents.idDocument);
       }
       
       // Call the registration API using AuthContext
-      const response = await register(userData);
+      const response = await register(formDataToSend);
       console.log('Registration response:', response);
       
-      setSuccess('Registration successfull!');
+      setSuccess('Registration successful! Please login to continue.');
       
       setTimeout(() => {
-        navigate('/');
+        navigate('/login');
       }, 2000);
       
     } catch (error) {
@@ -444,10 +463,53 @@ const PremierRegistration = () => {
                   onTogglePassword={handleTogglePassword}
                 />
 
+                {/* Document Upload Fields */}
+                <div className="space-y-4 mt-6">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Trade License (Optional)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp"
+                        onChange={(e) => handleFileChange(e, 'tradeLicense')}
+                        className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl transition-all duration-300 outline-none hover:border-gray-300 focus:border-red-500 focus:bg-white"
+                      />
+                      {documents.tradeLicense && (
+                        <div className="mt-2 text-sm text-green-600 flex items-center">
+                          <Check className="w-4 h-4 mr-1" />
+                          {documents.tradeLicense.name}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      ID Document (Optional)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp"
+                        onChange={(e) => handleFileChange(e, 'idDocument')}
+                        className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl transition-all duration-300 outline-none hover:border-gray-300 focus:border-red-500 focus:bg-white"
+                      />
+                      {documents.idDocument && (
+                        <div className="mt-2 text-sm text-green-600 flex items-center">
+                          <Check className="w-4 h-4 mr-1" />
+                          {documents.idDocument.name}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Extra spacing added here */}
                 <div className="mt-8 mb-8">
                   {/* Terms and Conditions */}
-                  <div className="flex items-start mb-8 lg:mb-10">
+                  <div className="flex items-start mb-4">
                     <label className="flex items-start cursor-pointer group">
                       <div className="relative mt-1">
                         <input
@@ -476,7 +538,33 @@ const PremierRegistration = () => {
                         >
                           Terms and Conditions
                         </button>
-                        {' '}and{' '}
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Privacy Policy */}
+                  <div className="flex items-start mb-8 lg:mb-10">
+                    <label className="flex items-start cursor-pointer group">
+                      <div className="relative mt-1">
+                        <input
+                          type="checkbox"
+                          name="agreeToPrivacy"
+                          checked={formData.agreeToPrivacy}
+                          onChange={handleInputChange}
+                          className="sr-only"
+                        />
+                        <div className={`w-5 h-5 border-2 rounded transition-all duration-300 ${
+                          formData.agreeToPrivacy 
+                            ? 'bg-red-500 border-red-500' 
+                            : 'border-gray-300 group-hover:border-red-500'
+                        }`}>
+                          {formData.agreeToPrivacy && (
+                            <Check className="w-3 h-3 text-white absolute top-0.5 left-0.5" />
+                          )}
+                        </div>
+                      </div>
+                      <span className="ml-3 text-sm lg:text-base text-gray-700 group-hover:text-gray-900 transition-colors leading-relaxed">
+                        I agree to the{' '}
                         <button
                           type="button"
                           className="text-red-500 hover:text-red-600 font-semibold underline decoration-red-500/30 hover:decoration-red-500 transition-all"

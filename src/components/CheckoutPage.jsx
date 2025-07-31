@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { FaCreditCard, FaLock, FaShoppingCart, FaCheck } from "react-icons/fa";
+import { FaCreditCard, FaLock, FaShoppingCart, FaCheck, FaCalendarAlt, FaSync } from "react-icons/fa";
 import { MdContactless, MdSecurity } from "react-icons/md";
 import { useLocation, useNavigate } from "react-router-dom";
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { useCart } from '../context/CartContext';
 import { toast } from 'react-toastify';
-import { createPaymentIntent, createOrderAfterPayment } from '../services/checkoutService';
+import { createPaymentIntent, createOrderAfterPayment, activateSubscription } from '../services/checkoutService';
 import userService from '../services/userService';
 import { useStore } from '../context/StoreContext';
 import { useAuth } from '../context/AuthContext';
@@ -126,6 +126,18 @@ const CheckoutPageContent = () => {
   // Add state for payment method
   const [paymentMethod, setPaymentMethod] = useState('card'); // 'card', 'cash', 'cheque', 'bank_transfer'
 
+  // Add state for payment processing
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const [orderProcessing, setOrderProcessing] = useState(false);
+
+  // Add state for recurring orders
+  const [orderFrequency, setOrderFrequency] = useState('one-time'); // 'one-time' or 'recurring'
+  const [recurringOptions, setRecurringOptions] = useState({
+    frequency: 'weekly', // 'weekly', 'bi-weekly', 'monthly', 'quarterly'
+  });
+
+  // No need to calculate end date since we're charging monthly on the same date
+
   // Get order summary from navigation state
   const orderSummary = location.state?.orderSummary || { items: cart.items, subtotal: cart.total };
 
@@ -223,6 +235,19 @@ const CheckoutPageContent = () => {
   const isStep1Complete = () => {
     if (cartError) return false;
     const requiredFields = ['email', 'firstName', 'lastName', 'phone'];
+    
+    // Check basic required fields
+    if (!requiredFields.every(field => formState[field].trim() !== '')) {
+      return false;
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formState.email)) {
+      return false;
+    }
+    
+    // Check delivery method specific requirements
     if (deliveryMethod === 'delivery') {
       // Require address fields for delivery
       const shippingFields = [
@@ -232,6 +257,7 @@ const CheckoutPageContent = () => {
         formState.shipping.country
       ];
       if (shippingFields.some(f => !f.trim())) return false;
+      
       if (!sameAsShipping) {
         const billingFields = [
           formState.billing.street,
@@ -242,7 +268,8 @@ const CheckoutPageContent = () => {
         if (billingFields.some(f => !f.trim())) return false;
       }
     }
-    return requiredFields.every(field => formState[field].trim() !== '');
+    
+    return true;
   };
 
   const handleInputChange = (field, value) => {
@@ -257,6 +284,21 @@ const CheckoutPageContent = () => {
     setCardErrors(event.error ? event.error.message : null);
     setCardComplete(event.complete);
     if (error && event.complete) setError(null);
+  };
+
+  const getRecurringDuration = () => {
+    switch (recurringOptions.frequency) {
+      case 'weekly':
+        return 4; // 4 weeks
+      case 'bi-weekly':
+        return 4; // 4 bi-weekly periods
+      case 'monthly':
+        return 4; // 4 months
+      case 'quarterly':
+        return 4; // 4 quarters
+      default:
+        return 4;
+    }
   };
 
   const calculateTotals = () => {
@@ -289,25 +331,28 @@ const CheckoutPageContent = () => {
       return false;
     }
 
-    if (!isStripeReady || !stripe || !elements) {
-      setError('Stripe is not properly loaded. Please refresh the page and try again.');
-      return false;
-    }
+    // Validate payment method specific requirements
+    if (paymentMethod === 'card') {
+      if (!isStripeReady || !stripe || !elements) {
+        setError('Stripe is not properly loaded. Please refresh the page and try again.');
+        return false;
+      }
 
-    const card = elements.getElement(CardElement);
-    if (!card) {
-      setError('Card information is required.');
-      return false;
-    }
+      const card = elements.getElement(CardElement);
+      if (!card) {
+        setError('Card information is required.');
+        return false;
+      }
 
-    if (cardErrors) {
-      setError(cardErrors);
-      return false;
-    }
+      if (cardErrors) {
+        setError(cardErrors);
+        return false;
+      }
 
-    if (!cardComplete) {
-      setError('Please complete your card information.');
-      return false;
+      if (!cardComplete) {
+        setError('Please complete your card information.');
+        return false;
+      }
     }
 
     if (deliveryMethod === 'delivery') {
@@ -351,7 +396,8 @@ const CheckoutPageContent = () => {
 
     try {
       const totals = calculateTotals();
-      // 1. Create PaymentIntent
+      
+      // Prepare customer information
       const customerInfo = {
         name: `${formState.firstName} ${formState.lastName}`,
         email: formState.email,
@@ -363,32 +409,182 @@ const CheckoutPageContent = () => {
           country: countryNameToCode(formState.shipping.country),
         } : undefined,
       };
-      const { clientSecret } = await createPaymentIntent(Math.round(totals.totalPrice * 100), customerInfo);
 
-      // 2. Confirm card payment
-      const cardElement = elements.getElement(CardElement);
-      const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: {
-          card: cardElement,
-          billing_details: {
-            name: customerInfo.name,
-            email: customerInfo.email,
-            phone: customerInfo.phone,
-            address: deliveryMethod === 'delivery' ? {
-              line1: formState.billing.street,
-              city: formState.billing.city,
-              postal_code: formState.billing.zipCode,
-              country: countryNameToCode(formState.billing.country),
-            } : undefined,
-          },
-        },
-      });
+      let paymentIntentId = null;
+      let paymentConfirmed = false;
+      let stripeCustomerId = null;
+      let subscriptionId = null;
+      let setupIntentId = null;
+      let requiresSetup = false;
 
-      if (stripeError) {
-        throw new Error(stripeError.message);
+      // Handle card payment method
+      if (paymentMethod === 'card') {
+        setPaymentProcessing(true);
+        try {
+          // Create PaymentIntent or Subscription
+          const totalAmount = totals.totalPrice;
+          const response = await createPaymentIntent(
+            Math.round(totalAmount * 100), 
+            customerInfo,
+            orderFrequency === 'recurring',
+            orderFrequency === 'recurring' ? (recurringOptions.frequency === 'bi-weekly' ? 'biweekly' : recurringOptions.frequency) : null
+          );
+          
+          let { 
+            clientSecret, 
+            paymentIntentId: intentId, 
+            stripeCustomerId: customerId, 
+            subscriptionId: subId, 
+            paymentIntentStatus: initialPaymentIntentStatus,
+            setupIntentId,
+            requiresSetup: requiresSetupFlag,
+            subscriptionStatus,
+            success,
+            message
+          } = response;
+          
+          console.log('Payment intent response:', response);
+          console.log('Extracted values:', { intentId, customerId, subId, setupIntentId, requiresSetupFlag });
+          
+          paymentIntentId = intentId;
+          stripeCustomerId = customerId;
+          subscriptionId = subId;
+          requiresSetup = requiresSetupFlag;
+
+          let paymentIntent;
+          
+          // Handle different subscription scenarios
+          if (orderFrequency === 'recurring' && subscriptionStatus === 'active' && !clientSecret) {
+            // Subscription is already active with existing payment method
+            console.log('Subscription already active, no additional payment needed');
+            paymentConfirmed = true;
+            // Create a mock payment intent for consistent flow
+            paymentIntent = { status: 'succeeded' };
+            // For active subscriptions without payment intent, we'll pass null
+            paymentIntentId = null;
+          } else if (requiresSetup && clientSecret) {
+            // Handle setup intent flow for subscriptions
+            console.log('Handling setup intent for subscription', { requiresSetup, setupIntentId, subscriptionId });
+            const cardElement = elements.getElement(CardElement);
+            const { error: stripeError, setupIntent } = await stripe.confirmCardSetup(clientSecret, {
+              payment_method: {
+                card: cardElement,
+                billing_details: {
+                  name: customerInfo.name,
+                  email: customerInfo.email,
+                  phone: customerInfo.phone,
+                  address: deliveryMethod === 'delivery' ? {
+                    line1: formState.billing.street,
+                    city: formState.billing.city,
+                    postal_code: formState.billing.zipCode,
+                    country: countryNameToCode(formState.billing.country),
+                  } : undefined,
+                },
+              },
+            });
+
+            if (stripeError) {
+              throw new Error(stripeError.message);
+            }
+
+            if (setupIntent.status === 'succeeded') {
+              // Activate the subscription with the payment method
+              // Pass additional data for setup intent flow
+              const activationResponse = await activateSubscription(
+                subscriptionId, 
+                setupIntent.payment_method,
+                setupIntentId,
+                customerInfo,
+                Math.round(totals.totalPrice * 100),
+                'aed',
+                orderFrequency === 'recurring' ? (recurringOptions.frequency === 'bi-weekly' ? 'biweekly' : recurringOptions.frequency) : null
+              );
+              console.log('Activation response:', activationResponse);
+              if (activationResponse.success) {
+                paymentConfirmed = true;
+                // Update subscription ID if a new one was created
+                if (activationResponse.subscriptionId) {
+                  subscriptionId = activationResponse.subscriptionId;
+                  console.log('Updated subscription ID after activation:', subscriptionId);
+                }
+                console.log('Subscription activated successfully');
+                
+                // Wait for webhook to process
+                await new Promise(resolve => setTimeout(resolve, 2000));
+              } else {
+                throw new Error('Failed to activate subscription: ' + activationResponse.message);
+              }
+            } else {
+              throw new Error('Setup intent was not successful. Please try again.');
+            }
+          } else if (clientSecret) {
+            // Regular payment intent flow
+            console.log('Handling regular payment intent flow', { paymentIntentId, subscriptionId });
+            const cardElement = elements.getElement(CardElement);
+            const { error: stripeError, paymentIntent: confirmedPaymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+              payment_method: {
+                card: cardElement,
+                billing_details: {
+                  name: customerInfo.name,
+                  email: customerInfo.email,
+                  phone: customerInfo.phone,
+                  address: deliveryMethod === 'delivery' ? {
+                    line1: formState.billing.street,
+                    city: formState.billing.city,
+                    postal_code: formState.billing.zipCode,
+                    country: countryNameToCode(formState.billing.country),
+                  } : undefined,
+                },
+              },
+            });
+
+            if (stripeError) {
+              throw new Error(stripeError.message);
+            }
+            paymentIntent = confirmedPaymentIntent;
+            
+            if (paymentIntent.status === 'succeeded') {
+              paymentConfirmed = true;
+            } else if (paymentIntent.status === 'processing') {
+              paymentConfirmed = true;
+            } else {
+              throw new Error('Payment was not successful. Please try again.');
+            }
+          }
+
+
+
+        } catch (paymentError) {
+          console.error('Payment processing error:', paymentError);
+          
+          // Provide more specific error messages
+          let errorMessage = paymentError.message;
+          if (paymentError.message.includes('setup intent')) {
+            errorMessage = 'Payment method setup failed. Please check your card details and try again.';
+          } else if (paymentError.message.includes('subscription')) {
+            errorMessage = 'Subscription activation failed. Please try again or contact support.';
+          }
+          
+          throw new Error(`Payment failed: ${errorMessage}`);
+        } finally {
+          setPaymentProcessing(false);
+        }
       }
 
       // 3. Create order in backend
+      setOrderProcessing(true);
+      
+      // Debug: Log the values being used for order data
+      console.log('Order data preparation - Debug values:', {
+        orderFrequency,
+        paymentMethod,
+        stripeCustomerId,
+        subscriptionId,
+        setupIntentId,
+        requiresSetup,
+        paymentConfirmed
+      });
+      
       const orderData = {
         orderItems: orderSummary.items.map(item => ({
           name: item.title,
@@ -411,38 +607,148 @@ const CheckoutPageContent = () => {
         } : undefined,
         deliveryMethod,
         pickupStore: deliveryMethod === 'pickup' ? selectedStore : undefined,
-        paymentMethod: paymentMethod, // Use the selected payment method
+        paymentMethod: paymentMethod,
         itemsPrice: totals.itemsPrice,
-        totalPrice: totals.totalPrice,
+        totalPrice: totals.totalPrice, 
         notes: formState.notes,
         store: selectedStore?._id || selectedStore?.id || undefined,
+        orderType: orderFrequency, // Use the selected order frequency
+        recurringFrequency: orderFrequency === 'recurring' ? (recurringOptions.frequency === 'bi-weekly' ? 'biweekly' : recurringOptions.frequency) : undefined,
+        recurringOptions: orderFrequency === 'recurring' ? {
+          frequency: recurringOptions.frequency === 'bi-weekly' ? 'biweekly' : recurringOptions.frequency,
+          startDate: new Date().toISOString().split('T')[0],
+          singleOrderPrice: totals.totalPrice
+        } : undefined,
+        stripeCustomerId: orderFrequency === 'recurring' && paymentMethod === 'card' ? stripeCustomerId : undefined,
+        stripeSubscriptionId: orderFrequency === 'recurring' && paymentMethod === 'card' ? (subscriptionId || null) : undefined,
+        setupIntentId: orderFrequency === 'recurring' && paymentMethod === 'card' ? (setupIntentId || null) : undefined,
+        stripePaymentMethodId: orderFrequency === 'recurring' && paymentMethod === 'card' ? (paymentConfirmed && setupIntentId ? 'payment_method_confirmed' : null) : undefined,
+        requiresSetup: orderFrequency === 'recurring' && paymentMethod === 'card' ? requiresSetup : undefined,
       };
 
-      const orderRes = await createOrderAfterPayment(paymentIntent.id, orderData, customerInfo);
+      // Debug: Log the final order data being sent
+      console.log('Final order data being sent:', {
+        orderType: orderData.orderType,
+        paymentMethod: orderData.paymentMethod,
+        stripeCustomerId: orderData.stripeCustomerId,
+        stripeSubscriptionId: orderData.stripeSubscriptionId,
+        setupIntentId: orderData.setupIntentId,
+        requiresSetup: orderData.requiresSetup
+      });
+
+      // Validate that we have the required data for recurring card payments
+      if (orderFrequency === 'recurring' && paymentMethod === 'card') {
+        if (!orderData.stripeSubscriptionId && !orderData.setupIntentId) {
+          console.error('Missing required data for recurring order:', {
+            subscriptionId,
+            setupIntentId,
+            stripeCustomerId
+          });
+          throw new Error('Payment setup incomplete. Please try again.');
+        }
+      }
+
+      // Try to create order with retry mechanism
+      let orderRes;
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (retryCount < maxRetries) {
+        try {
+          // Pass paymentIntentId only if it exists
+          // For active subscriptions, paymentIntentId might be null
+          orderRes = await createOrderAfterPayment(paymentIntentId, orderData, customerInfo);
+          
+          if (orderRes.success) {
+            break; // Success, exit retry loop
+          } else if (orderRes.error === 'Payment not successful' && retryCount < maxRetries - 1) {
+            // Payment might still be processing, wait and retry
+            console.log(`Payment still processing, retrying in ${(retryCount + 1) * 2} seconds...`);
+            await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
+            retryCount++;
+            continue;
+          } else {
+            throw new Error(orderRes.message || 'Order failed to save.');
+          }
+        } catch (error) {
+          if (error.response?.data?.error === 'Payment not successful' && retryCount < maxRetries - 1) {
+            // Payment might still be processing, wait and retry
+            console.log(`Payment still processing, retrying in ${(retryCount + 1) * 2} seconds...`);
+            await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
+            retryCount++;
+            continue;
+          } else {
+            throw error;
+          }
+        }
+      }
 
       if (orderRes.success) {
+        // Clear cart on successful order
         clearCart();
         setSuccess(true);
         setCurrentStep(4);
-        toast.success('Order placed successfully!', {
+        
+        // Show success message based on payment method and order type
+        let successMessage = 'Order placed successfully!';
+        const orderTypeText = orderFrequency === 'recurring' ? 'Recurring order' : 'Order';
+        
+        if (paymentMethod === 'card') {
+          successMessage = `${orderTypeText} placed successfully! Payment confirmed.`;
+        } else if (paymentMethod === 'cash') {
+          successMessage = `${orderTypeText} placed successfully! Please prepare cash payment upon delivery/pickup.`;
+        } else if (paymentMethod === 'cheque') {
+          successMessage = `${orderTypeText} placed successfully! Please have your cheque ready upon delivery/pickup.`;
+        } else if (paymentMethod === 'bank_transfer') {
+          successMessage = `${orderTypeText} placed successfully! Please complete the bank transfer and email your receipt.`;
+        }
+        
+        if (orderFrequency === 'recurring') {
+          successMessage += ` Your recurring orders have been set up. You will be charged every ${recurringOptions.frequency.replace('-', ' ')} on the same date.`;
+        }
+        
+        toast.success(successMessage, {
           position: "bottom-right",
-          autoClose: 3000,
+          autoClose: 5000,
         });
+
+        // Navigate to order confirmation
         const token = localStorage.getItem('token');
         const stateObj = {
           orderId: orderRes.orderId,
+          orderNumber: orderRes.orderNumber,
+          trackingNumber: orderRes.trackingNumber,
           items: orderSummary.items,
-          total: totals.totalPrice
+          total: totals.totalPrice, // Charge per order for recurring orders
+          paymentMethod: paymentMethod,
+          paymentStatus: orderRes.paymentStatus,
+          deliveryMethod: deliveryMethod,
+          estimatedDelivery: orderRes.estimatedDelivery,
+          orderFrequency: orderFrequency,
+          recurringOptions: orderFrequency === 'recurring' ? recurringOptions : undefined
         };
+        
         if (!token) {
           stateObj.email = formState.email;
         }
+        
         navigate('/order-confirmation', { state: stateObj });
       } else {
         throw new Error(orderRes.message || 'Order failed to save.');
       }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || error.message || 'An unexpected error occurred. Please try again.';
+      console.error('Order creation error:', error);
+      
+      let errorMessage = 'An unexpected error occurred. Please try again.';
+      
+      if (error.message.includes('Payment failed')) {
+        errorMessage = error.message;
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       setError(errorMessage);
       toast.error(errorMessage, {
         position: "bottom-right",
@@ -450,6 +756,7 @@ const CheckoutPageContent = () => {
       });
     } finally {
       setIsSubmitting(false);
+      setOrderProcessing(false);
     }
   };
 
@@ -492,6 +799,31 @@ const CheckoutPageContent = () => {
   }
 
   const totals = calculateTotals();
+
+  // Helper function to get button text based on payment method and state
+  const getButtonText = () => {
+    if (isSubmitting || paymentProcessing || orderProcessing) {
+      if (paymentProcessing) return 'Processing Payment...';
+      if (orderProcessing) return 'Creating Order...';
+      return 'Processing...';
+    }
+    
+    const totalAmount = totals.totalPrice; // Charge per order for recurring orders
+    const amount = `د.إ${totalAmount.toFixed(2)}`;
+    
+    switch (paymentMethod) {
+      case 'card':
+        return `Pay ${amount}`;
+      case 'cash':
+        return `Place Order (Cash) ${amount}`;
+      case 'cheque':
+        return `Place Order (Cheque) ${amount}`;
+      case 'bank_transfer':
+        return `Place Order (Bank Transfer) ${amount}`;
+      default:
+        return `Place Order ${amount}`;
+    }
+  };
 
   const steps = [
     { id: 1, name: "Shipping", icon: FaShoppingCart },
@@ -548,64 +880,171 @@ const CheckoutPageContent = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Form */}
           <div className="lg:col-span-2">
-            {/* Step 1: Shipping Information */}
+                        {/* Step 1: Shipping Information */}
             {currentStep === 1 && (
               <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
                 <h2 className="text-2xl font-bold text-black mb-6 flex items-center">
                   <FaShoppingCart className="mr-3 text-[#8e191c]" />
-                  {deliveryMethod === 'pickup' ? 'Contact Information' : 'Shipping Information'}
+                  Checkout Information
                 </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Contact fields */}
-                  <div>
-                    <label className="block text-sm font-medium text-black mb-2">Email *</label>
-                    <input
-                      type="email"
-                      value={formState.email}
-                      onChange={e => setFormState(f => ({ ...f, email: e.target.value }))}
-                      required
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-[#8e191c] placeholder-[#8e191c]/50 focus:border-[#8e191c] focus:ring-2 focus:ring-[#8e191c]/20 transition-all duration-200"
-                      placeholder="your@email.com"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-black mb-2">Phone *</label>
-                    <input
-                      type="tel"
-                      value={formState.phone}
-                      onChange={e => setFormState(f => ({ ...f, phone: e.target.value }))}
-                      required
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-[#8e191c] placeholder-[#8e191c]/50 focus:border-[#8e191c] focus:ring-2 focus:ring-[#8e191c]/20 transition-all duration-200"
-                      placeholder="+1 (555) 123-4567"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-black mb-2">First Name *</label>
-                    <input
-                      type="text"
-                      value={formState.firstName}
-                      onChange={e => setFormState(f => ({ ...f, firstName: e.target.value }))}
-                      required
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-[#8e191c] placeholder-[#8e191c]/50 focus:border-[#8e191c] focus:ring-2 focus:ring-[#8e191c]/20 transition-all duration-200"
-                      placeholder="John"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-black mb-2">Last Name *</label>
-                    <input
-                      type="text"
-                      value={formState.lastName}
-                      onChange={e => setFormState(f => ({ ...f, lastName: e.target.value }))}
-                      required
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-[#8e191c] placeholder-[#8e191c]/50 focus:border-[#8e191c] focus:ring-2 focus:ring-[#8e191c]/20 transition-all duration-200"
-                      placeholder="Doe"
-                    />
+
+                {/* Order Type Section - First */}
+                <div className="mb-8">
+                  <h3 className="text-xl font-bold text-black mb-4 flex items-center">
+                    <FaSync className="mr-3 text-[#8e191c]" />
+                    Order Type
+                  </h3>
+                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-6 shadow-sm border border-gray-200">
+                    <div className="flex gap-4 mb-6">
+                      <button
+                        type="button"
+                        className={`flex-1 py-4 px-6 rounded-xl border-2 font-bold transition-all duration-300 transform hover:scale-105 ${
+                          orderFrequency === 'one-time' 
+                            ? 'bg-[#8e191c] text-white border-[#8e191c] shadow-lg' 
+                            : 'bg-white text-[#8e191c] border-gray-300 hover:border-[#8e191c] hover:shadow-md'
+                        }`}
+                        onClick={() => setOrderFrequency('one-time')}
+                      >
+                        One-Time Order
+                      </button>
+                      <button
+                        type="button"
+                        className={`flex-1 py-4 px-6 rounded-xl border-2 font-bold transition-all duration-300 transform hover:scale-105 ${
+                          orderFrequency === 'recurring' 
+                            ? 'bg-[#8e191c] text-white border-[#8e191c] shadow-lg' 
+                            : 'bg-white text-[#8e191c] border-gray-300 hover:border-[#8e191c] hover:shadow-md'
+                        }`}
+                        onClick={() => setOrderFrequency('recurring')}
+                      >
+                        Recurring Order
+                      </button>
+                    </div>
+
+                    {orderFrequency === 'recurring' && (
+                      <div className="space-y-6">
+                        <div>
+                          <label className="block text-sm font-semibold text-black mb-3">Select Frequency</label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              className={`py-2 px-3 rounded-lg border-2 font-semibold transition-all duration-300 text-xs transform hover:scale-105 ${
+                                recurringOptions.frequency === 'weekly'
+                                  ? 'bg-red-100 text-[#8e191c] border-red-300 shadow-lg'
+                                  : 'bg-white text-[#8e191c] border-gray-300 hover:border-red-300 hover:shadow-md'
+                              }`}
+                              onClick={() => setRecurringOptions(prev => ({ ...prev, frequency: 'weekly' }))}
+                            >
+                              Weekly
+                            </button>
+                            <button
+                              type="button"
+                              className={`py-2 px-3 rounded-lg border-2 font-semibold transition-all duration-300 text-xs transform hover:scale-105 ${
+                                recurringOptions.frequency === 'bi-weekly'
+                                  ? 'bg-red-100 text-[#8e191c] border-red-300 shadow-lg'
+                                  : 'bg-white text-[#8e191c] border-gray-300 hover:border-red-300 hover:shadow-md'
+                              }`}
+                              onClick={() => setRecurringOptions(prev => ({ ...prev, frequency: 'bi-weekly' }))}
+                            >
+                              Bi-Weekly
+                            </button>
+                            <button
+                              type="button"
+                              className={`py-2 px-3 rounded-lg border-2 font-semibold transition-all duration-300 text-xs transform hover:scale-105 ${
+                                recurringOptions.frequency === 'monthly'
+                                  ? 'bg-red-100 text-[#8e191c] border-red-300 shadow-lg'
+                                  : 'bg-white text-[#8e191c] border-gray-300 hover:border-red-300 hover:shadow-md'
+                              }`}
+                              onClick={() => setRecurringOptions(prev => ({ ...prev, frequency: 'monthly' }))}
+                            >
+                              Monthly
+                            </button>
+                            <button
+                              type="button"
+                              className={`py-2 px-3 rounded-lg border-2 font-semibold transition-all duration-300 text-xs transform hover:scale-105 ${
+                                recurringOptions.frequency === 'quarterly'
+                                  ? 'bg-red-100 text-[#8e191c] border-red-300 shadow-lg'
+                                  : 'bg-white text-[#8e191c] border-gray-300 hover:border-red-300 hover:shadow-md'
+                              }`}
+                              onClick={() => setRecurringOptions(prev => ({ ...prev, frequency: 'quarterly' }))}
+                            >
+                              Quarterly
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="bg-gradient-to-r from-[#8e191c]/10 to-[#8e191c]/5 border-2 border-[#8e191c]/20 rounded-xl p-4">
+                          <div className="flex items-center">
+                            <div className="w-2 h-2 bg-[#8e191c] rounded-full mr-3"></div>
+                            <div className="text-sm text-[#8e191c] font-medium">
+                              Your orders will be automatically charged every {recurringOptions.frequency.replace('-', ' ')} on the same date.
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
+
+                {/* Contact Information Section - Second */}
+                <div className="mb-8">
+                  <h3 className="text-xl font-bold text-black mb-4 flex items-center">
+                    <FaShoppingCart className="mr-3 text-[#8e191c]" />
+                    Contact Information
+                  </h3>
+                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-6 shadow-sm border border-gray-200">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-black mb-3">Email *</label>
+                        <input
+                          type="email"
+                          value={formState.email}
+                          onChange={e => setFormState(f => ({ ...f, email: e.target.value }))}
+                          required
+                          className="w-full px-4 py-4 bg-white border-2 border-gray-200 rounded-xl text-[#8e191c] placeholder-[#8e191c]/50 focus:border-[#8e191c] focus:ring-4 focus:ring-[#8e191c]/20 transition-all duration-300 shadow-sm"
+                          placeholder="your@email.com"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-black mb-3">Phone *</label>
+                        <input
+                          type="tel"
+                          value={formState.phone}
+                          onChange={e => setFormState(f => ({ ...f, phone: e.target.value }))}
+                          required
+                          className="w-full px-4 py-4 bg-white border-2 border-gray-200 rounded-xl text-[#8e191c] placeholder-[#8e191c]/50 focus:border-[#8e191c] focus:ring-4 focus:ring-[#8e191c]/20 transition-all duration-300 shadow-sm"
+                          placeholder="+1 (555) 123-4567"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-black mb-3">First Name *</label>
+                        <input
+                          type="text"
+                          value={formState.firstName}
+                          onChange={e => setFormState(f => ({ ...f, firstName: e.target.value }))}
+                          required
+                          className="w-full px-4 py-4 bg-white border-2 border-gray-200 rounded-xl text-[#8e191c] placeholder-[#8e191c]/50 focus:border-[#8e191c] focus:ring-4 focus:ring-[#8e191c]/20 transition-all duration-300 shadow-sm"
+                          placeholder="John"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-black mb-3">Last Name *</label>
+                        <input
+                          type="text"
+                          value={formState.lastName}
+                          onChange={e => setFormState(f => ({ ...f, lastName: e.target.value }))}
+                          required
+                          className="w-full px-4 py-4 bg-white border-2 border-gray-200 rounded-xl text-[#8e191c] placeholder-[#8e191c]/50 focus:border-[#8e191c] focus:ring-4 focus:ring-[#8e191c]/20 transition-all duration-300 shadow-sm"
+                          placeholder="Doe"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Shipping Address Fields */}
                 {deliveryMethod === 'delivery' && (
                   <>
-                    <div className="mt-6">
+                    <div className="mb-6">
                       <h3 className="text-lg font-semibold text-black mb-2 border-b border-gray-200 pb-1">Shipping Address</h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
@@ -631,13 +1070,13 @@ const CheckoutPageContent = () => {
                       </div>
                     </div>
                     {/* Same as shipping checkbox */}
-                    <div className="mt-4 flex items-center">
+                    <div className="mb-4 flex items-center">
                       <input type="checkbox" checked={sameAsShipping} onChange={e => handleSameAsShippingChange(e.target.checked)} id="sameAsShipping" className="mr-2" />
                       <label htmlFor="sameAsShipping" className="text-sm text-black">Billing address is the same as shipping address</label>
                     </div>
                     {/* Billing Address Fields */}
                     {!sameAsShipping && (
-                      <div className="mt-6">
+                      <div className="mb-6">
                         <h3 className="text-lg font-semibold text-black mb-2 border-b border-gray-200 pb-1">Billing Address</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div>
@@ -665,15 +1104,22 @@ const CheckoutPageContent = () => {
                     )}
                   </>
                 )}
-                <div className="mt-6">
-                  <label className="block text-sm font-medium text-black mb-2">Special Instructions (Optional)</label>
-                  <textarea
-                    value={formState.notes}
-                    onChange={e => setFormState(f => ({ ...f, notes: e.target.value }))}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-[#8e191c] placeholder-[#8e191c]/50 focus:border-[#8e191c] focus:ring-2 focus:ring-[#8e191c]/20 transition-all duration-200"
-                    placeholder="Leave at front door, etc..."
-                    rows="3"
-                  />
+
+                {/* Special Instructions */}
+                <div className="mb-8">
+                  <h3 className="text-xl font-bold text-black mb-4 flex items-center">
+                    <FaShoppingCart className="mr-3 text-[#8e191c]" />
+                    Special Instructions
+                  </h3>
+                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-6 shadow-sm border border-gray-200">
+                    <textarea
+                      value={formState.notes}
+                      onChange={e => setFormState(f => ({ ...f, notes: e.target.value }))}
+                      className="w-full px-4 py-4 bg-white border-2 border-gray-200 rounded-xl text-[#8e191c] placeholder-[#8e191c]/50 focus:border-[#8e191c] focus:ring-4 focus:ring-[#8e191c]/20 transition-all duration-300 shadow-sm resize-none"
+                      placeholder="Leave at front door, delivery instructions, or any special requests..."
+                      rows="4"
+                    />
+                  </div>
                 </div>
                 
                 <button
@@ -745,6 +1191,38 @@ const CheckoutPageContent = () => {
                       <p className="text-black">{formState.notes}</p>
                     </div>
                   )}
+                  
+                  {/* Order Frequency Information */}
+                  <div className="bg-[#8e191c]/10 border border-[#8e191c]/30 rounded-lg p-4">
+                    <h3 className="text-lg font-semibold text-[#8e191c] mb-2 flex items-center">
+                      <FaSync className="mr-2" />
+                      Order Type
+                    </h3>
+                    <div className="space-y-2">
+                                              <div className="flex justify-between items-center">
+                          <span className="text-[#8e191c] font-medium">Order Type:</span>
+                          <span className="font-semibold text-[#8e191c] capitalize">
+                            {orderFrequency === 'one-time' ? 'One-Time Order' : 'Recurring Order'}
+                          </span>
+                        </div>
+                        {orderFrequency === 'recurring' && (
+                        <>
+                          <div className="flex justify-between items-center">
+                            <span className="text-[#8e191c] font-medium">Frequency:</span>
+                            <span className="font-semibold text-[#8e191c] capitalize">
+                              {recurringOptions.frequency.replace('-', ' ')}
+                            </span>
+                          </div>
+                          <div className="mt-2 p-2 bg-[#8e191c]/5 rounded border border-[#8e191c]/20">
+                            <p className="text-xs text-[#8e191c]/80">
+                              Your orders will be automatically charged every {recurringOptions.frequency.replace('-', ' ')} on the same date.
+                            </p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  
                   <div className="bg-[#8e191c]/10 border border-[#8e191c]/30 rounded-lg p-4">
                     <h3 className="text-lg font-semibold text-[#8e191c] mb-2">Order Items</h3>
                     <div className="space-y-2">
@@ -898,18 +1376,18 @@ const CheckoutPageContent = () => {
                   </button>
                   <button
                     onClick={handleSubmit}
-                    disabled={isSubmitting || (paymentMethod === 'card' && (!cardComplete || cardErrors || !isStripeReady))}
+                    disabled={isSubmitting || (paymentMethod === 'card' && (!cardComplete || cardErrors || !isStripeReady)) || paymentProcessing || orderProcessing}
                     className="flex-1 py-3 px-6 bg-[#8e191c] text-white font-semibold rounded-lg hover:bg-[#8e191c]/90 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                   >
-                    {isSubmitting ? (
+                    {isSubmitting || paymentProcessing || orderProcessing ? (
                       <>
                         <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                        <span className="text-white">Processing Payment...</span>
+                        <span className="text-white">{getButtonText()}</span>
                       </>
                     ) : (
                       <>
                         <FaLock className="mr-2 text-white" />
-                        <span className="text-white">{paymentMethod === 'card' ? 'Pay' : 'Place Order'} د.إ{totals.totalPrice.toFixed(2)}</span>
+                        <span className="text-white">{getButtonText()}</span>
                       </>
                     )}
                   </button>
@@ -923,38 +1401,75 @@ const CheckoutPageContent = () => {
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 sticky top-4">
               <h3 className="text-xl font-bold text-black mb-4">Order Summary</h3>
               
-              <div className="space-y-4 mb-6">
+              <div className="space-y-3 mb-6">
                 {orderSummary?.items.map((item, index) => (
-                  <div key={index} className="flex items-center space-x-3">
+                  <div key={index} className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                     <img 
                       src={item.imageUrl || item.image || "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=300"} 
                       alt={item.title}
-                      className="w-12 h-12 object-cover rounded-lg"
+                      className="w-14 h-14 object-cover rounded-lg shadow-sm"
                       onError={(e) => {
                         e.target.src = "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=300";
                       }}
                     />
                     <div className="flex-1">
-                      <p className="text-black font-medium text-sm">{item.title}</p>
-                      <p className="text-black text-sm">Qty: {item.quantity}</p>
+                      <p className="text-black font-semibold text-sm leading-tight">{item.title}</p>
+                      <p className="text-gray-600 text-xs mt-1">Qty: {item.quantity}</p>
                     </div>
-                    <p className="text-black font-semibold text-right">
+                    <p className="text-black font-bold text-base">
                       د.إ{(item.price * item.quantity).toFixed(2)}
                     </p>
                   </div>
                 ))}
               </div>
               
-              <div className="border-t border-[#8e191c]/30 pt-4 space-y-2">
-                <div className="flex justify-between text-black">
-                  <span>Subtotal</span>
-                  <span>د.إ{totals.itemsPrice.toFixed(2)}</span>
+              <div className="border-t-2 border-gray-200 pt-4 space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-700 font-semibold">Subtotal</span>
+                  <span className="text-black font-bold text-lg">د.إ{totals.itemsPrice.toFixed(2)}</span>
                 </div>
-                <div className="border-t border-[#8e191c]/30 pt-2">
-                  <div className="flex justify-between text-black font-bold text-lg">
-                    <span>Total</span>
-                    <span className="text-[#8e191c]">د.إ{totals.totalPrice.toFixed(2)}</span>
+                
+                {/* Recurring Order Summary */}
+                {orderFrequency === 'recurring' && (
+                  <div className="bg-gradient-to-br from-[#8e191c]/15 to-[#8e191c]/5 border-2 border-[#8e191c]/20 rounded-xl p-4 mt-4 shadow-sm">
+                    <div className="flex items-center mb-3">
+                      <div className="w-3 h-3 bg-[#8e191c] rounded-full mr-3"></div>
+                      <span className="text-[#8e191c] font-bold text-base">Recurring Order</span>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[#8e191c]/80 text-sm">Billing Cycle:</span>
+                        <span className="text-[#8e191c] font-bold text-base capitalize">
+                          {recurringOptions.frequency.replace('-', ' ')}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[#8e191c]/80 text-sm">Per Order:</span>
+                        <span className="text-[#8e191c] font-bold text-lg">
+                          د.إ{totals.totalPrice.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
+                )}
+                
+                <div className="border-t-2 border-[#8e191c]/20 pt-4 mt-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-black font-bold text-xl">Total</span>
+                    <span className="text-[#8e191c] font-bold text-2xl">
+                      د.إ{totals.totalPrice.toFixed(2)}
+                    </span>
+                  </div>
+                  {orderFrequency === 'recurring' && (
+                    <div className="mt-2 p-3 bg-[#8e191c]/5 border border-[#8e191c]/20 rounded-lg">
+                      <div className="flex items-center">
+                        <div className="w-2 h-2 bg-[#8e191c]/60 rounded-full mr-2"></div>
+                        <span className="text-xs text-[#8e191c]/80 font-medium">
+                          You will be charged د.إ{totals.totalPrice.toFixed(2)} every {recurringOptions.frequency.replace('-', ' ')}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

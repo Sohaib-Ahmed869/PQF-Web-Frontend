@@ -32,6 +32,7 @@ import DisputesPage from './UserPages/DisputesPage';
 import AbandonedCartManagement from './AdminPages/AbandonedCartManagement/AbandonedCartPage';
 import AbandonedCartsPage from './UserPages/AbandonedCartsPage';
 import AbandonedCartDetailPage from './UserPages/AbandonedCartDetailPage';
+import UserManagementPage from './AdminPages/UserManagement/UserManagementPage';
 
 // Placeholder components for Orders and Reviews
 const Reviews = () => <div className="p-8 text-2xl">Your Reviews (Coming Soon)</div>;
@@ -78,6 +79,7 @@ function App() {
                 <Route path="/admin/categories" element={<CategoryPage />} />
                 <Route path="/admin/products" element={<ProductPage />} />
                 <Route path="/admin/orders" element={<OrderManagement />} />
+                <Route path="/admin/users" element={<UserManagementPage />} />
                 <Route path="/admin/disputes" element={<DisputePage />} />
                 <Route path="/admin/abandoned-carts" element={<AbandonedCartManagement />} />
                 <Route path="/cart" element={<Cart />} />

@@ -9,7 +9,8 @@ import {
   FaTimes,
   FaTag,
   FaExclamationTriangle,
-  FaCartArrowDown
+  FaCartArrowDown,
+  FaUsers
 } from 'react-icons/fa'
 import logo from "../assets/PQF-22.png"
 
@@ -22,6 +23,7 @@ export default function AdminSidebar() {
     { to: '/admin/categories', icon: FaTag, label: 'Categories' },
     { to: '/admin/products', icon: FaBox, label: 'Products' },
     { to: '/admin/orders', icon: FaShoppingCart, label: 'Orders' },
+    { to: '/admin/users', icon: FaUsers, label: 'User Management' },
     { to: '/admin/disputes', icon: FaExclamationTriangle, label: 'Disputes' },
     { to: '/admin/abandoned-carts', icon: FaCartArrowDown, label: 'Abandoned Carts' },
   ]

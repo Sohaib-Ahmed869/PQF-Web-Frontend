@@ -2,6 +2,7 @@ import axios from 'axios';
 
 // Define baseURL with better fallback handling
 const baseURL = import.meta.env.VITE_API_URL || 'https://backendpqf.foodservices.live/api';
+//https://backendpqf.foodservices.live/api
 console.log('🔧 API Configuration: baseURL set to:', baseURL);
 
 // Create axios instance with base configuration
