@@ -273,7 +273,6 @@ const OrderManagement = () => {
       
       <div className="flex-1 overflow-auto relative lg:ml-64 pt-8">
 
-        
         {view === 'list' ? (
           <OrderList 
             orders={orders}

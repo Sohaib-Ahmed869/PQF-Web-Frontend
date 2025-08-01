@@ -1,6 +1,6 @@
 import PromotionalBanners from './components/BannerPage';
 import Category from './components/Category';
-import FeaturedProductPage from './components/FeatureProduct';
+import FeatureProduct from './components/FeatureProduct';
 import Footer from './components/Footer';
 const HomePage = () => {
   return (
@@ -10,7 +10,7 @@ const HomePage = () => {
         {/* Content Sections */}
         <PromotionalBanners />
         <Category />
-        <FeaturedProductPage />
+        <FeatureProduct />
       </div>
 
       <Footer />

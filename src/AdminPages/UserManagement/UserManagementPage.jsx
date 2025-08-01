@@ -82,6 +82,21 @@ const UserManagementPage = () => {
     return matchesSearch && matchesFilter;
   });
 
+  // Helper function to validate if a document is actually uploaded
+  const isValidDocument = (document) => {
+    return document && 
+           document.url && 
+           document.filename && 
+           document.uploadedAt && 
+           new Date(document.uploadedAt).toString() !== 'Invalid Date';
+  };
+
+  // Helper function to check if user has any valid documents
+  const hasValidDocuments = (user) => {
+    return (user.documents?.tradeLicense && isValidDocument(user.documents.tradeLicense)) ||
+           (user.documents?.idDocument && isValidDocument(user.documents.idDocument));
+  };
+
   const getStatusBadge = (status) => {
     const statusConfig = {
       pending: { color: 'bg-yellow-100 text-yellow-800', text: 'Pending' },
@@ -292,9 +307,9 @@ const UserManagementPage = () => {
                         <div className="flex flex-col sm:flex-row gap-2">
                           <button
                             onClick={() => handleViewDocuments(user)}
-                            disabled={!user.documents?.tradeLicense && !user.documents?.idDocument}
+                            disabled={!hasValidDocuments(user)}
                             className={`w-full text-xs sm:text-sm font-medium py-2 px-2 sm:px-3 rounded-lg transition-colors flex items-center justify-center gap-1 sm:gap-2 ${
-                              user.documents?.tradeLicense || user.documents?.idDocument
+                              hasValidDocuments(user)
                                 ? 'bg-red-600 hover:bg-red-700 text-white'
                                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                             }`}
@@ -382,9 +397,9 @@ const UserManagementPage = () => {
                             <td className="px-6 py-4 whitespace-nowrap">
                               <button
                                 onClick={() => handleViewDocuments(user)}
-                                disabled={!user.documents?.tradeLicense && !user.documents?.idDocument}
+                                disabled={!hasValidDocuments(user)}
                                 className={`flex items-center gap-1 ${
-                                  user.documents?.tradeLicense || user.documents?.idDocument
+                                  hasValidDocuments(user)
                                     ? 'text-red-600 hover:text-red-900'
                                     : 'text-gray-400 cursor-not-allowed'
                                 }`}

@@ -46,6 +46,22 @@ const UserDocumentView = ({ userId, onClose }) => {
     window.open(url, '_blank');
   };
 
+  // Helper function to validate if a document is actually uploaded
+  const isValidDocument = (document) => {
+    return document && 
+           document.url && 
+           document.filename && 
+           document.uploadedAt && 
+           new Date(document.uploadedAt).toString() !== 'Invalid Date';
+  };
+
+  // Helper function to format upload date safely
+  const formatUploadDate = (uploadedAt) => {
+    if (!uploadedAt) return 'Date not available';
+    const date = new Date(uploadedAt);
+    return date.toString() === 'Invalid Date' ? 'Date not available' : date.toLocaleDateString();
+  };
+
   if (loading) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -122,7 +138,7 @@ const UserDocumentView = ({ userId, onClose }) => {
           <h3 className="font-semibold text-lg">Uploaded Documents</h3>
           
           {/* Trade License */}
-          {user.documents?.tradeLicense ? (
+          {user.documents?.tradeLicense && isValidDocument(user.documents.tradeLicense) ? (
             <div className="border border-gray-200 rounded-lg p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -131,7 +147,7 @@ const UserDocumentView = ({ userId, onClose }) => {
                     <h4 className="font-medium">Trade License</h4>
                     <p className="text-sm text-gray-600">{user.documents.tradeLicense.filename}</p>
                     <p className="text-xs text-gray-500">
-                      Uploaded: {new Date(user.documents.tradeLicense.uploadedAt).toLocaleDateString()}
+                      Uploaded: {formatUploadDate(user.documents.tradeLicense.uploadedAt)}
                     </p>
                   </div>
                 </div>
@@ -167,7 +183,7 @@ const UserDocumentView = ({ userId, onClose }) => {
           )}
 
           {/* ID Document */}
-          {user.documents?.idDocument ? (
+          {user.documents?.idDocument && isValidDocument(user.documents.idDocument) ? (
             <div className="border border-gray-200 rounded-lg p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -176,7 +192,7 @@ const UserDocumentView = ({ userId, onClose }) => {
                     <h4 className="font-medium">ID Document</h4>
                     <p className="text-sm text-gray-600">{user.documents.idDocument.filename}</p>
                     <p className="text-xs text-gray-500">
-                      Uploaded: {new Date(user.documents.idDocument.uploadedAt).toLocaleDateString()}
+                      Uploaded: {formatUploadDate(user.documents.idDocument.uploadedAt)}
                     </p>
                   </div>
                 </div>
