@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import webService from '../../services/Website/WebService';
 import { Star, Heart, ShoppingCart, Truck, Shield, Clock, ChevronLeft, ChevronRight, Plus, Minus, Share2, Eye, Snowflake, Loader2, X, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import LoaderOverlay from '../../components/LoaderOverlay';
@@ -7,6 +7,51 @@ import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
 import { useAuth } from '../../context/AuthContext';
 import LoginModal from '../../components/LoginModal';
+
+// Custom Dropdown Component for Price List Selection
+const PriceListSelect = ({ value, onChange, options }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white text-gray-800 font-medium focus:outline-none focus:ring-2 focus:ring-[#8e191c] shadow-md text-left flex items-center justify-between"
+      >
+        <span>{options.find(opt => opt.value === value)?.label || 'Select Price'}</span>
+        <svg 
+          className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} 
+          fill="none" 
+          stroke="#8e191c" 
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      
+      {isOpen && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => {
+                onChange(option.value);
+                setIsOpen(false);
+              }}
+              className={`w-full px-4 py-3 text-left hover:bg-[#8e191c] hover:text-white transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl ${
+                value === option.value ? 'bg-[#8e191c] text-white' : 'text-gray-800'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 // Add global keyframes for animations
 if (typeof document !== 'undefined' && !document.getElementById('product-keyframes')) {
@@ -44,22 +89,233 @@ const HalalIcon = () => (
   </svg>
 );
 
+// Related Product Card Component
+const RelatedProductCard = React.memo(({ product, onAddToCart, onToggleWishlist, isInWishlist, triggerLoginModal, selectedPriceList = 2 }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  const { addToCart, getCartItem, updateCartItem, removeFromCart } = useCart();
+  
+  // Get price for selected price list
+  const getPrice = (product) => {
+    if (!product) return 0;
+    
+    // Handle new price structure with prices array
+    if (product.prices && Array.isArray(product.prices)) {
+      const priceItem = product.prices.find(p => p.PriceList === selectedPriceList);
+      return priceItem ? parseFloat(priceItem.Price) : 0;
+    }
+    
+    // Handle ItemPrices structure
+    if (product.ItemPrices && Array.isArray(product.ItemPrices)) {
+      const priceItem = product.ItemPrices.find(p => p.PriceList === selectedPriceList);
+      return priceItem ? parseFloat(priceItem.Price) : 0;
+    }
+    
+    // Handle direct price field
+    if (product.price) {
+      const priceNum = parseFloat(String(product.price).replace(/[^\d.-]/g, ''));
+      return isNaN(priceNum) ? 0 : priceNum;
+    }
+    
+    // Handle price by type
+    if (product.priceType && product.price) {
+      const priceNum = parseFloat(String(product.price).replace(/[^\d.-]/g, ''));
+      return isNaN(priceNum) ? 0 : priceNum;
+    }
+    
+    return 0;
+  };
+
+  const handleAddToCart = (e) => {
+    e.stopPropagation();
+    if (!isAuthenticated()) {
+      triggerLoginModal();
+      return;
+    }
+    setIsAddingToCart(true);
+    addToCart(product._id || product.id, 1);
+    setTimeout(() => setIsAddingToCart(false), 1000);
+  };
+
+  const handleToggleWishlist = (e) => {
+    e.stopPropagation();
+    if (!isAuthenticated()) {
+      triggerLoginModal();
+      return;
+    }
+    onToggleWishlist(product._id || product.id);
+  };
+
+  const productName = product.ItemName || product.name || '';
+  const productImage = product.image || 'https://images.unsplash.com/photo-1502741338009-cac2772e18bc?auto=format&fit=crop&w=400&q=80';
+  const price = getPrice(product);
+  
+  // Get cart item quantity
+  const cartItem = getCartItem(product._id || product.id);
+  const quantityInCart = cartItem ? cartItem.quantity : 0;
+  
+  return (
+    <div 
+      className="group cursor-pointer"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onClick={() => navigate(`/product/${product._id || product.id}?priceType=${selectedPriceList}`)}
+    >
+      <div className="relative bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300">
+        {/* Image Container */}
+        <div className="relative aspect-square overflow-hidden">
+          <img 
+            src={productImage}
+            alt={productName}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            loading="lazy"
+            onError={(e) => {
+              e.target.src = 'https://images.unsplash.com/photo-1502741338009-cac2772e18bc?auto=format&fit=crop&w=400&q=80';
+            }}
+          />
+          
+          {/* Wishlist Button - Show on hover */}
+          {isHovered && (
+            <button
+              onClick={handleToggleWishlist}
+              className="absolute top-3 right-3 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center backdrop-blur-sm"
+            >
+              <Heart className={`w-4 h-4 ${isInWishlist ? 'fill-current' : ''}`} style={{ color: '#8e191c' }} />
+            </button>
+          )}
+        </div>
+        
+        {/* Product Info */}
+        <div className="relative p-4">
+          {/* Product Name */}
+          <h3 className="text-sm font-semibold text-gray-800 text-center truncate mb-2">
+            {productName}
+          </h3>
+          
+          {/* Price */}
+          <div className="text-center mb-3">
+            <span className="text-sm font-medium" style={{ color: '#8e191c' }}>
+              {isAuthenticated() ? (
+                `AED ${price ? price.toFixed(2) : '0.00'}`
+              ) : (
+                'Login to see price'
+              )}
+            </span>
+          </div>
+          
+          {/* Add to Cart Section */}
+          <div className="flex items-center gap-2">
+            {quantityInCart > 0 ? (
+              <div className="flex items-center gap-2 w-full py-2 px-4 rounded-lg font-medium" style={{ backgroundColor: '#8e191c', color: 'white' }}>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (quantityInCart === 1) {
+                      removeFromCart(product._id || product.id);
+                    } else {
+                      updateCartItem(product._id || product.id, quantityInCart - 1);
+                    }
+                  }}
+                  className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center"
+                >
+                  -
+                </button>
+                <span className="flex-1 text-center font-medium">{quantityInCart}</span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    addToCart(product._id || product.id, 1);
+                  }}
+                  className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center"
+                >
+                  +
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleAddToCart}
+                disabled={isAddingToCart}
+                className={`
+                  w-full py-2 px-4 rounded-lg font-medium
+                  ${isAddingToCart 
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                    : 'text-white'
+                  }
+                `}
+                style={{
+                  backgroundColor: isAddingToCart ? undefined : '#8e191c'
+                }}
+              >
+                {isAddingToCart ? (
+                  <span className="flex items-center justify-center">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                    Adding...
+                  </span>
+                ) : (
+                  <span className="flex items-center justify-center">
+                    <ShoppingCart className="w-4 h-4 mr-2" />
+                    Add to Cart
+                  </span>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+RelatedProductCard.displayName = 'RelatedProductCard';
+
 const IndividualProductPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [quantity, setQuantity] = useState(1);
-  const [selectedImage, setSelectedImage] = useState(0);
+  const [relatedProducts, setRelatedProducts] = useState([]);
+  const [relatedProductsLoading, setRelatedProductsLoading] = useState(false);
+
+  // Get price type from URL parameters, default to 2 (Delivery Price)
+  const urlParams = new URLSearchParams(location.search);
+  const urlPriceType = urlParams.get('priceType');
+  const [selectedPriceList, setSelectedPriceList] = useState(
+    urlPriceType ? parseInt(urlPriceType) : 2
+  );
+  
   const { isInWishlist, toggleWishlist } = useWishlist();
   const [showNotification, setShowNotification] = useState(false);
   const [hoveredFeature, setHoveredFeature] = useState(null);
-  const { addToCart } = useCart();
+  const { addToCart, getCartItem, updateCartItem, removeFromCart } = useCart();
   const [addingToCart, setAddingToCart] = useState(false);
   const [addToCartError, setAddToCartError] = useState(null);
   const { isAuthenticated } = useAuth();
   const [showLoginModal, setShowLoginModal] = useState(false);
+
+  // Price list options
+  const priceListOptions = [
+    { value: 1, label: 'On-Site Price' },
+    { value: 2, label: 'Delivery Price' },
+    { value: 3, label: 'Pallet Complete Onsite' },
+    { value: 5, label: 'Pallet Complete Delivery' }
+  ];
+
+  // Update URL when price type changes
+  const updateURLWithPriceType = (priceType) => {
+    const params = new URLSearchParams(location.search);
+    params.set('priceType', priceType);
+    navigate(`${location.pathname}?${params.toString()}`, { replace: true });
+  };
+
+  // Handle price type change
+  const handlePriceTypeChange = (newPriceType) => {
+    setSelectedPriceList(newPriceType);
+    updateURLWithPriceType(newPriceType);
+  };
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -79,32 +335,107 @@ const IndividualProductPage = () => {
     fetchProduct();
   }, [id]);
 
+  // Fetch related products
+  useEffect(() => {
+    const fetchRelatedProducts = async () => {
+      if (!product) return;
+      
+      setRelatedProductsLoading(true);
+      try {
+        const response = await webService.getActiveProductsByStore();
+        const allProducts = response.data?.data || [];
+        
+        // Get the current product's item group code
+        const currentProductGroupCode = product.ItemGroupCode || product.itemGroupCode || product.groupCode || product.GroupCode;
+        
+        // Filter products by the same item group code and exclude the current product
+        let filteredProducts = allProducts.filter(p => {
+          const productId = p._id || p.id;
+          const currentProductId = product._id || product.id;
+          
+          // Exclude the current product
+          if (productId === currentProductId) return false;
+          
+          // Check if products have the same item group code
+          const productGroupCode = p.ItemGroupCode || p.itemGroupCode || p.groupCode || p.GroupCode;
+          return productGroupCode === currentProductGroupCode;
+        });
+        
+        // If not enough products in the same group, get some from other groups
+        if (filteredProducts.length < 6) {
+          const otherProducts = allProducts.filter(p => {
+            const productId = p._id || p.id;
+            const currentProductId = product._id || product.id;
+            
+            // Exclude the current product and products already in filteredProducts
+            if (productId === currentProductId) return false;
+            
+            const productGroupCode = p.ItemGroupCode || p.itemGroupCode || p.groupCode || p.GroupCode;
+            const isInFiltered = filteredProducts.some(fp => (fp._id || fp.id) === productId);
+            
+            return !isInFiltered;
+          });
+          
+          // Add other products to reach 6 total
+          const remainingSlots = 6 - filteredProducts.length;
+          filteredProducts = [...filteredProducts, ...otherProducts.slice(0, remainingSlots)];
+        }
+        
+        // Limit to 6 products
+        filteredProducts = filteredProducts.slice(0, 6);
+        
+        setRelatedProducts(filteredProducts);
+      } catch (err) {
+        console.error('Failed to load related products:', err);
+      } finally {
+        setRelatedProductsLoading(false);
+      }
+    };
+
+    fetchRelatedProducts();
+  }, [product]);
+
   // Helper functions for price, badges, images, etc.
-  const getPrice = (product, priceListId = 2) => {
+  const getPrice = (product, priceListId = selectedPriceList) => {
     if (!product) return 0;
+    
+    // Handle new price structure with prices array
     if (product.prices && Array.isArray(product.prices)) {
       const priceItem = product.prices.find(p => p.PriceList === priceListId);
-      return priceItem ? priceItem.Price : 0;
-    } else if (product.ItemPrices && Array.isArray(product.ItemPrices)) {
-      const priceItem = product.ItemPrices.find(p => p.PriceList === priceListId);
-      return priceItem ? priceItem.Price : 0;
+      return priceItem ? parseFloat(priceItem.Price) : 0;
     }
+    
+    // Handle ItemPrices structure
+    if (product.ItemPrices && Array.isArray(product.ItemPrices)) {
+      const priceItem = product.ItemPrices.find(p => p.PriceList === priceListId);
+      return priceItem ? parseFloat(priceItem.Price) : 0;
+    }
+    
+    // Handle direct price field
     if (product.price) {
-      const priceNum = parseFloat(product.price.replace('€', ''));
+      const priceNum = parseFloat(String(product.price).replace(/[^\d.-]/g, ''));
       return isNaN(priceNum) ? 0 : priceNum;
     }
+    
+    // Handle price by type
+    if (product.priceType && product.price) {
+      const priceNum = parseFloat(String(product.price).replace(/[^\d.-]/g, ''));
+      return isNaN(priceNum) ? 0 : priceNum;
+    }
+    
     return 0;
   };
-  const formatPrice = (product, priceListId = 2) => {
+
+  const formatPrice = (product, priceListId = selectedPriceList) => {
     const price = getPrice(product, priceListId);
-    return `د.إ${price.toFixed(2)}`;
+    return `AED ${price.toFixed(2)}`;
   };
+
   const getBadges = (product) => {
     if (!product) return [];
     const badges = [];
     if (product.halal === 'tYES' || product.Properties1 === 'tYES') badges.push('Halal');
     if (product.frozen === 'tYES' || product.Frozen === 'tYES') badges.push('Frozen');
-    if (product.isAvailable) badges.push('Available');
     if (product.badges && Array.isArray(product.badges)) badges.push(...product.badges);
     return badges;
   };
@@ -127,16 +458,28 @@ const IndividualProductPage = () => {
     return product?.ItemCode || product?.code || '';
   };
 
-  // Replace handleAddToCart with async version
+  const getPriceTypeLabel = (priceListId) => {
+    const priceType = priceListOptions.find(opt => opt.value === priceListId);
+    return priceType ? priceType.label : 'Price';
+  };
+
+  // Handle cart operations
   const handleAddToCart = async () => {
     if (!isAuthenticated()) {
-      navigate('/login');
+      setShowLoginModal(true);
       return;
     }
     setAddingToCart(true);
     setAddToCartError(null);
     try {
-      await addToCart(product._id || product.id, quantity);
+      const cartItem = getCartItem(product._id || product.id);
+      if (cartItem) {
+        // Update existing item quantity
+        await updateCartItem(product._id || product.id, cartItem.quantity + 1);
+      } else {
+        // Add new item
+        await addToCart(product._id || product.id, 1);
+      }
       setShowNotification(true);
       setTimeout(() => setShowNotification(false), 3000);
     } catch (error) {
@@ -148,6 +491,12 @@ const IndividualProductPage = () => {
     }
   };
 
+  // Get current cart quantity for this product
+  const getCurrentCartQuantity = () => {
+    const cartItem = getCartItem(product._id || product.id);
+    return cartItem ? cartItem.quantity : 0;
+  };
+
   const handleAddToCartClick = (e) => {
     if (e && e.stopPropagation) e.stopPropagation();
     if (!isAuthenticated()) {
@@ -157,13 +506,7 @@ const IndividualProductPage = () => {
     handleAddToCart();
   };
 
-  const nextImage = () => {
-    setSelectedImage((prev) => (prev + 1) % getImages(product).length);
-  };
 
-  const prevImage = () => {
-    setSelectedImage((prev) => (prev - 1 + getImages(product).length) % getImages(product).length);
-  };
 
   if (loading) return <LoaderOverlay text="Loading product..." />;
   if (error) return (
@@ -193,13 +536,7 @@ const IndividualProductPage = () => {
   const productCode = getProductCode(product);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-red-50 relative overflow-hidden">
-      {/* Background Decorative Elements */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-20 left-10 w-32 h-32 rounded-full blur-3xl animate-pulse" style={{ backgroundColor: '#8e191c', opacity: 0.12 }} />
-        <div className="absolute bottom-40 right-20 w-48 h-48 rounded-full blur-3xl animate-pulse delay-1000" style={{ backgroundColor: '#8e191c', opacity: 0.08 }} />
-        <div className="absolute top-1/2 left-1/4 w-24 h-24 rounded-full blur-2xl animate-pulse delay-2000" style={{ backgroundColor: '#8e191c', opacity: 0.10 }} />
-      </div>
+    <div className="min-h-screen bg-gray-50">
 
       {/* Notification */}
       {showNotification && (
@@ -218,31 +555,13 @@ const IndividualProductPage = () => {
           {/* Product Images Section */}
           <div className="relative">
             {/* Main Product Image */}
-            <div className="relative bg-white rounded-3xl p-8 shadow-2xl overflow-hidden mb-6"
-                 style={{
-                   clipPath: 'polygon(0 0, calc(100% - 40px) 0, 100% 40px, 100% 100%, 40px 100%, 0 calc(100% - 40px))'
-                 }}>
+            <div className="relative aspect-square overflow-hidden rounded-2xl">
+              <img
+                src={images[0]}
+                alt={productName}
+                className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
+              />
               
-              {/* Badges */}
-              <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
-                {badges.map((badge, index) => (
-                  <span
-                    key={index}
-                    className={
-                      badge === 'Halal'
-                        ? 'bg-green-500 rounded-full p-1 flex items-center justify-center shadow-lg'
-                        : badge === 'Frozen'
-                        ? 'bg-blue-500 px-3 py-1 rounded-full text-xs font-bold text-white shadow-lg'
-                        : 'bg-red-500 px-3 py-1 rounded-full text-xs font-bold text-white shadow-lg'
-                    }
-                  >
-                    {badge === 'Halal' ? <HalalIcon /> :
-                     badge === 'Frozen' ? <Snowflake size={16} /> :
-                     badge}
-                  </span>
-                ))}
-              </div>
-
               {/* Wishlist Button */}
               <button
                 onClick={(e) => {
@@ -259,65 +578,11 @@ const IndividualProductPage = () => {
                   size={20}
                   className={`transition-colors duration-300 ${
                     isInWishlist(productId)
-                      ? 'fill-red-500 text-red-500'
-                      : 'text-gray-600'
+                      ? 'fill-[#8e191c] text-[#8e191c]'
+                      : 'text-[#8e191c]'
                   }`}
                 />
               </button>
-
-              {/* Navigation Arrows */}
-              <button
-                onClick={prevImage}
-                className="absolute left-4 top-1/2 -translate-y-1/2 z-10 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:scale-110 transition-all duration-300"
-              >
-                <ChevronLeft size={20} className="text-gray-700" />
-              </button>
-              
-              <button
-                onClick={nextImage}
-                className="absolute right-4 top-1/2 -translate-y-1/2 z-10 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:scale-110 transition-all duration-300"
-              >
-                <ChevronRight size={20} className="text-gray-700" />
-              </button>
-
-              {/* Main Image */}
-              <div className="relative h-96 overflow-hidden rounded-2xl">
-                <img
-                  src={images[selectedImage]}
-                  alt={productName}
-                  className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
-              </div>
-
-              {/* Floating Decorative Elements */}
-              <div className="absolute right-8 top-16 opacity-20">
-                <div className="w-16 h-16 rounded-full" style={{ backgroundColor: '#8e191c', animation: 'float-gentle 4s ease-in-out infinite' }} />
-              </div>
-              <div className="absolute left-12 bottom-20 opacity-15">
-                <div className="w-12 h-12" style={{ backgroundColor: '#8e191c', transform: 'rotate(45deg)', animation: 'float-gentle 5s ease-in-out infinite reverse' }} />
-              </div>
-            </div>
-
-            {/* Thumbnail Images */}
-            <div className="flex gap-3 justify-center">
-              {images.map((image, index) => (
-                <button
-                  key={index}
-                  onClick={() => setSelectedImage(index)}
-                  className={`w-20 h-20 rounded-xl overflow-hidden transition-all duration-300 ${
-                    selectedImage === index 
-                      ? 'ring-4 ring-red-500 scale-110 shadow-lg' 
-                      : 'hover:scale-105 opacity-70 hover:opacity-100'
-                  }`}
-                >
-                  <img
-                    src={image}
-                    alt={`${productName} ${index + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                </button>
-              ))}
             </div>
           </div>
 
@@ -335,68 +600,73 @@ const IndividualProductPage = () => {
 
             </div>
 
+            {/* Price List Selection */}
+            <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Select Price Type</h3>
+              <PriceListSelect
+                value={selectedPriceList}
+                onChange={handlePriceTypeChange}
+                options={priceListOptions}
+              />
+            </div>
+
             {/* Pricing */}
-            <div className="bg-gradient-to-r p-6 rounded-2xl text-white shadow-xl"
-                 style={{
-                   background: 'linear-gradient(90deg, #8e191c 0%, #8e191c 100%)',
-                   clipPath: 'polygon(0 0, calc(100% - 30px) 0, 100% 30px, 100% 100%, 30px 100%, 0 calc(100% - 30px))'
-                 }}>
-              <div className="space-y-2">
+            <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200">
+              <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-lg opacity-90">Delivery price:</span>
+                  <span className="text-lg font-medium text-gray-700">
+                    {getPriceTypeLabel(selectedPriceList)}:
+                  </span>
                   {isAuthenticated() ? (
-                    <span className="text-3xl font-bold">{formatPrice(product, 2)}</span>
+                    <span className="text-3xl font-bold" style={{ color: '#8e191c' }}>
+                      {formatPrice(product, selectedPriceList)}
+                    </span>
                   ) : (
-                    <span className="text-3xl font-bold opacity-60">—</span>
+                    <span className="text-3xl font-bold opacity-60">Login to see price</span>
                   )}
                 </div>
-                {/* Price */}
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl font-bold text-[#8e191c]">
-                    {isAuthenticated() ? (product.price ? `د.إ${parseFloat(product.price).toFixed(2)}` : 'د.إ0.00') : 'Login to see price'}
-                  </span>
-                </div>
-                <div className="pt-2 border-t border-white/20">
-                  <span className="text-sm opacity-80">excluding VAT/kilo</span>
-                </div>
+                
+                {/* Show all available prices if user is authenticated */}
+                {isAuthenticated() && product.prices && Array.isArray(product.prices) && product.prices.length > 1 && (
+                  <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">All Available Prices:</h4>
+                    <div className="space-y-2">
+                      {priceListOptions.map(option => {
+                        const price = getPrice(product, option.value);
+                        if (price > 0) {
+                          return (
+                            <div key={option.value} className="flex justify-between items-center text-sm">
+                              <span className="text-gray-600">{option.label}:</span>
+                              <span className="font-medium" style={{ color: '#8e191c' }}>
+                                AED {price.toFixed(2)}
+                              </span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })}
+                    </div>
+                  </div>
+                )}
+                
               </div>
             </div>
 
-            {/* Quantity & Add to Cart */}
-            <div className="flex flex-col md:flex-row md:items-center gap-6 w-full">
-              <div className="flex items-center gap-3">
-                <span className="text-lg font-medium text-gray-700">Quantity:</span>
-                <div className="flex items-center bg-gray-100 rounded-xl overflow-hidden">
-                  <button
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="p-3 hover:bg-red-500 hover:text-white transition-colors duration-200"
-                  >
-                    <Minus size={16} />
-                  </button>
-                  <span className="px-6 py-3 font-bold text-lg min-w-[60px] text-center">
-                    {quantity}
-                  </span>
-                  <button
-                    onClick={() => setQuantity(quantity + 1)}
-                    className="p-3 hover:bg-red-500 hover:text-white transition-colors duration-200"
-                  >
-                    <Plus size={16} />
-                  </button>
-                </div>
-              </div>
+            {/* Add to Cart Section */}
+            <div className="flex flex-col gap-4">
+              {/* Add to Cart Button */}
               <button
                 onClick={handleAddToCartClick}
                 disabled={addingToCart || getStock(product) === 0}
-                className={`flex-1 text-white font-bold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none ${!isAuthenticated() ? 'bg-gray-300 text-gray-700' : ''}`}
+                className={`w-full text-white font-bold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed ${!isAuthenticated() ? 'bg-gray-300 text-gray-700' : ''}`}
                 style={{ 
-                  background: !isAuthenticated() ? undefined : (getStock(product) === 0 ? '#gray-400' : 'linear-gradient(90deg, #8e191c 0%, #8e191c 100%)'), 
-                  animation: getStock(product) > 0 && isAuthenticated() ? 'pulse-glow 2s ease-in-out infinite' : 'none'
+                  background: !isAuthenticated() ? undefined : (getStock(product) === 0 ? '#gray-400' : '#8e191c')
                 }}
               >
                 {!isAuthenticated() ? (
                   <>
                     <ShoppingCart size={20} />
-                    Add to Cart
+                    Login to Add to Cart
                   </>
                 ) : addingToCart ? (
                   <>
@@ -408,6 +678,11 @@ const IndividualProductPage = () => {
                     <X className="w-5 h-5" />
                     Out of Stock
                   </>
+                ) : getCurrentCartQuantity() > 0 ? (
+                  <>
+                    <ShoppingCart size={20} />
+                    Add to Cart ({getCurrentCartQuantity()})
+                  </>
                 ) : (
                   <>
                     <ShoppingCart size={20} />
@@ -415,6 +690,7 @@ const IndividualProductPage = () => {
                   </>
                 )}
               </button>
+              
               {addToCartError && (
                 <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
                   <p className="text-red-700 text-sm flex items-center gap-2">
@@ -423,7 +699,7 @@ const IndividualProductPage = () => {
                   </p>
                 </div>
               )}
-                         </div>
+            </div>
 
              {/* Product Description */}
              <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-gray-100">
@@ -432,6 +708,38 @@ const IndividualProductPage = () => {
              </div>
 
            </div>
+         </div>
+       </div>
+
+       {/* Related Products Section */}
+       <div className="mt-16">
+         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+           <h2 className="text-2xl font-bold text-gray-800 mb-6">Related Products</h2>
+           
+           {relatedProductsLoading ? (
+             <div className="flex justify-center items-center py-12">
+               <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#8e191c' }} />
+               <span className="ml-3 text-gray-600">Loading related products...</span>
+             </div>
+           ) : relatedProducts.length > 0 ? (
+             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+               {relatedProducts.map((relatedProduct, index) => (
+                 <RelatedProductCard
+                   key={relatedProduct._id || relatedProduct.id || index}
+                   product={relatedProduct}
+                   onAddToCart={addToCart}
+                   onToggleWishlist={toggleWishlist}
+                   isInWishlist={isInWishlist(relatedProduct._id || relatedProduct.id)}
+                   triggerLoginModal={() => setShowLoginModal(true)}
+                   selectedPriceList={selectedPriceList}
+                 />
+               ))}
+             </div>
+           ) : (
+             <div className="text-center py-12">
+               <p className="text-gray-500">No related products available</p>
+             </div>
+           )}
          </div>
        </div>
       <LoginModal

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, Heart, Eye, Star, ChevronLeft, ChevronRight, Filter, Grid, List, Snowflake, Loader2, X, AlertCircle } from 'lucide-react';
+import { ShoppingCart, Heart, Eye, Star, ChevronLeft, ChevronRight, Filter, Grid, List, Snowflake, Loader2, X, AlertCircle, Search } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import webService from '../../services/Website/WebService';
 import LoaderOverlay from '../../components/LoaderOverlay';
@@ -9,7 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useWishlist } from '../../context/WishlistContext';
 import LoginModal from '../../components/LoginModal';
 
-// Add CSS for fade-in animation
+// Add CSS for fade-in animation and line-clamp
 const fadeInStyle = `
   @keyframes fadeIn {
     from {
@@ -24,12 +24,102 @@ const fadeInStyle = `
   .animate-fade-in {
     animation: fadeIn 0.6s ease-out forwards;
   }
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  select option:checked {
+    background-color: #8e191c !important;
+    color: white !important;
+  }
+  select option:hover {
+    background-color: #8e191c !important;
+    color: white !important;
+  }
+  select option:focus {
+    background-color: #8e191c !important;
+    color: white !important;
+  }
+  select option {
+    background-color: white !important;
+    color: #374151 !important;
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin: 2px;
+  }
+  select option:hover,
+  select option:focus,
+  select option:active {
+    background-color: #8e191c !important;
+    color: white !important;
+  }
+  select:focus option:hover {
+    background-color: #8e191c !important;
+    color: white !important;
+  }
+  select:focus option:checked {
+    background-color: #8e191c !important;
+    color: white !important;
+  }
 `;
 
 // Inject the CSS
 const styleSheet = document.createElement('style');
 styleSheet.textContent = fadeInStyle;
 document.head.appendChild(styleSheet);
+
+// Custom Dropdown Component
+const CustomSelect = ({ value, onChange, options, placeholder, className = "" }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedLabel, setSelectedLabel] = useState('');
+  
+  useEffect(() => {
+    const selected = options.find(opt => opt.value === value);
+    setSelectedLabel(selected ? selected.label : placeholder);
+  }, [value, options, placeholder]);
+
+  return (
+    <div className={`relative ${className}`}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-3 py-2 rounded-xl border-2 border-white bg-white text-gray-800 font-medium focus:outline-none focus:ring-2 focus:ring-[#8e191c] min-w-[120px] sm:min-w-[140px] shadow-md text-sm text-left flex items-center justify-between"
+      >
+        <span>{selectedLabel}</span>
+        <svg 
+          className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} 
+          fill="none" 
+          stroke="#8e191c" 
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      
+      {isOpen && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 max-h-60 overflow-y-auto">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => {
+                onChange(option.value);
+                setIsOpen(false);
+              }}
+              className={`w-full px-3 py-2 text-left hover:bg-[#8e191c] hover:text-white transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl ${
+                value === option.value ? 'bg-[#8e191c] text-white' : 'text-gray-800'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const HalalIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -38,8 +128,8 @@ const HalalIcon = () => (
   </svg>
 );
 
-// Simple Product Card Component (matching FeatureProduct design)
-const ProductCard = React.memo(({ product, onAddToCart, onToggleWishlist, index, isInWishlist, triggerLoginModal }) => {
+// Grid Product Card Component
+const ProductCard = React.memo(({ product, onAddToCart, onToggleWishlist, index, isInWishlist, triggerLoginModal, selectedPriceList = 2 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const navigate = useNavigate();
@@ -49,18 +139,31 @@ const ProductCard = React.memo(({ product, onAddToCart, onToggleWishlist, index,
   // Get price for selected price list
   const getPrice = (product) => {
     if (!product) return 0;
+    
+    // Handle new price structure with prices array
     if (product.prices && Array.isArray(product.prices)) {
-      const priceItem = product.prices.find(p => p.PriceList === 2); // Default to Delivery Price
-      return priceItem ? priceItem.Price : 0;
-    } else if (product.ItemPrices && Array.isArray(product.ItemPrices)) {
-      const priceItem = product.ItemPrices.find(p => p.PriceList === 2);
-      return priceItem ? priceItem.Price : 0;
+      const priceItem = product.prices.find(p => p.PriceList === selectedPriceList);
+      return priceItem ? parseFloat(priceItem.Price) : 0;
     }
-    // fallback for old structure
+    
+    // Handle ItemPrices structure
+    if (product.ItemPrices && Array.isArray(product.ItemPrices)) {
+      const priceItem = product.ItemPrices.find(p => p.PriceList === selectedPriceList);
+      return priceItem ? parseFloat(priceItem.Price) : 0;
+    }
+    
+    // Handle direct price field
     if (product.price) {
-      let priceNum = parseFloat((product.price + '').replace('€', ''));
+      const priceNum = parseFloat(String(product.price).replace(/[^\d.-]/g, ''));
       return isNaN(priceNum) ? 0 : priceNum;
     }
+    
+    // Handle price by type
+    if (product.priceType && product.price) {
+      const priceNum = parseFloat(String(product.price).replace(/[^\d.-]/g, ''));
+      return isNaN(priceNum) ? 0 : priceNum;
+    }
+    
     return 0;
   };
 
@@ -97,6 +200,7 @@ const ProductCard = React.memo(({ product, onAddToCart, onToggleWishlist, index,
       className="group cursor-pointer"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onClick={() => navigate(`/product/${product._id || product.id}?priceType=${selectedPriceList}`)}
       style={{
         animationDelay: `${index * 50}ms`
       }}
@@ -136,7 +240,11 @@ const ProductCard = React.memo(({ product, onAddToCart, onToggleWishlist, index,
           <div className="text-center mb-3">
             {/* Main Price */}
             <span className="text-sm font-medium" style={{ color: '#8e191c' }}>
-              AED {price ? price.toFixed(2) : '0.00'}
+              {isAuthenticated() ? (
+                `AED ${price ? price.toFixed(2) : '0.00'}`
+              ) : (
+                'Login to see price'
+              )}
             </span>
           </div>
           
@@ -205,6 +313,195 @@ const ProductCard = React.memo(({ product, onAddToCart, onToggleWishlist, index,
 
 ProductCard.displayName = 'ProductCard';
 
+// List Product Card Component
+const ProductListCard = React.memo(({ product, onAddToCart, onToggleWishlist, index, isInWishlist, triggerLoginModal, selectedPriceList = 2 }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  const { addToCart, getCartItem, updateCartItem, removeFromCart } = useCart();
+  
+  // Get price for selected price list
+  const getPrice = (product) => {
+    if (!product) return 0;
+    
+    // Handle new price structure with prices array
+    if (product.prices && Array.isArray(product.prices)) {
+      const priceItem = product.prices.find(p => p.PriceList === selectedPriceList);
+      return priceItem ? parseFloat(priceItem.Price) : 0;
+    }
+    
+    // Handle ItemPrices structure
+    if (product.ItemPrices && Array.isArray(product.ItemPrices)) {
+      const priceItem = product.ItemPrices.find(p => p.PriceList === selectedPriceList);
+      return priceItem ? parseFloat(priceItem.Price) : 0;
+    }
+    
+    // Handle direct price field
+    if (product.price) {
+      const priceNum = parseFloat(String(product.price).replace(/[^\d.-]/g, ''));
+      return isNaN(priceNum) ? 0 : priceNum;
+    }
+    
+    // Handle price by type
+    if (product.priceType && product.price) {
+      const priceNum = parseFloat(String(product.price).replace(/[^\d.-]/g, ''));
+      return isNaN(priceNum) ? 0 : priceNum;
+    }
+    
+    return 0;
+  };
+
+  const handleAddToCart = (e) => {
+    e.stopPropagation();
+    if (!isAuthenticated()) {
+      triggerLoginModal();
+      return;
+    }
+    setIsAddingToCart(true);
+    addToCart(product._id || product.id, 1);
+    setTimeout(() => setIsAddingToCart(false), 1000);
+  };
+
+  const handleToggleWishlist = (e) => {
+    e.stopPropagation();
+    if (!isAuthenticated()) {
+      triggerLoginModal();
+      return;
+    }
+    onToggleWishlist(product._id || product.id);
+  };
+
+  const productName = product.ItemName || product.name || '';
+  const productImage = product.image || 'https://images.unsplash.com/photo-1502741338009-cac2772e18bc?auto=format&fit=crop&w=400&q=80';
+  const price = getPrice(product);
+  
+  // Get cart item quantity
+  const cartItem = getCartItem(product._id || product.id);
+  const quantityInCart = cartItem ? cartItem.quantity : 0;
+  
+  return (
+    <div 
+      className="group cursor-pointer animate-fade-in"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onClick={() => navigate(`/product/${product._id || product.id}?priceType=${selectedPriceList}`)}
+      style={{
+        animationDelay: `${index * 50}ms`
+      }}
+    >
+      <div className="relative bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300">
+        <div className="flex">
+          {/* Small Image Container */}
+          <div className="relative w-20 h-20 flex-shrink-0">
+            <img 
+              src={productImage}
+              alt={productName}
+              className="w-full h-full object-cover"
+              loading="lazy"
+              onError={(e) => {
+                e.target.src = 'https://images.unsplash.com/photo-1502741338009-cac2772e18bc?auto=format&fit=crop&w=400&q=80';
+              }}
+            />
+            
+            {/* Wishlist Button - Show on hover */}
+            {isHovered && (
+              <button
+                onClick={handleToggleWishlist}
+                className="absolute top-1 right-1 w-5 h-5 bg-white/90 rounded-full flex items-center justify-center backdrop-blur-sm"
+              >
+                <Heart className={`w-2.5 h-2.5 ${isInWishlist ? 'fill-current' : ''}`} style={{ color: '#8e191c' }} />
+              </button>
+            )}
+          </div>
+          
+          {/* Product Info */}
+          <div className="flex-1 p-3">
+            <div className="flex justify-between items-start h-full">
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-gray-800 mb-2 line-clamp-2">
+                  {productName}
+                </h3>
+                
+                {/* Price */}
+                <div className="mb-2">
+                  <span className="text-lg font-bold" style={{ color: '#8e191c' }}>
+                    {isAuthenticated() ? (
+                      `AED ${price ? price.toFixed(2) : '0.00'}`
+                    ) : (
+                      'Login to see price'
+                    )}
+                  </span>
+                </div>
+              </div>
+              
+              {/* Add to Cart Section */}
+              <div className="flex items-center ml-3">
+                {quantityInCart > 0 ? (
+                  <div className="flex items-center gap-2 py-1.5 px-2 rounded-lg font-medium" style={{ backgroundColor: '#8e191c', color: 'white' }}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (quantityInCart === 1) {
+                          removeFromCart(product._id || product.id);
+                        } else {
+                          updateCartItem(product._id || product.id, quantityInCart - 1);
+                        }
+                      }}
+                      className="w-4 h-4 bg-white/20 rounded-full flex items-center justify-center text-xs"
+                    >
+                      -
+                    </button>
+                    <span className="text-xs font-medium">{quantityInCart}</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        addToCart(product._id || product.id, 1);
+                      }}
+                      className="w-4 h-4 bg-white/20 rounded-full flex items-center justify-center text-xs"
+                    >
+                      +
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleAddToCart}
+                    disabled={isAddingToCart}
+                    className={`
+                      py-1.5 px-3 rounded-lg font-medium text-xs
+                      ${isAddingToCart 
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                        : 'text-white'
+                      }
+                    `}
+                    style={{
+                      backgroundColor: isAddingToCart ? undefined : '#8e191c'
+                    }}
+                  >
+                    {isAddingToCart ? (
+                      <span className="flex items-center justify-center">
+                        <div className="w-2.5 h-2.5 border-2 border-white border-t-transparent rounded-full animate-spin mr-1"></div>
+                        Adding...
+                      </span>
+                    ) : (
+                      <span className="flex items-center justify-center">
+                        <ShoppingCart className="w-3 h-3 mr-1" />
+                        Add to Cart
+                      </span>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+ProductListCard.displayName = 'ProductListCard';
+
 const ProductListPage = () => {
   const { isInWishlist, toggleWishlist } = useWishlist();
   const [hoveredProduct, setHoveredProduct] = useState(null);
@@ -221,23 +518,36 @@ const ProductListPage = () => {
   const productsPerPage = 30;
   // Add filter states after useState declarations
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestionLoading, setSuggestionLoading] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [searchFocused, setSearchFocused] = useState(false);
   const [priceRange, setPriceRange] = useState('all');
+  const [showFilters, setShowFilters] = useState(true);
+  const [expandedSections, setExpandedSections] = useState({
+    search: true,
+    priceRange: true,
+    sortBy: true,
+    priceList: true
+  });
+  const [priceSliderRange, setPriceSliderRange] = useState([0, 2000]);
   const [sortBy, setSortBy] = useState('newest');
-  const statusOptions = [
-    { value: 'all', label: 'All Products' },
-    { value: 'halal', label: 'Halal' },
-    { value: 'frozen', label: 'Frozen' },
-    { value: 'inStock', label: 'In Stock' },
-    { value: 'outOfStock', label: 'Out of Stock' },
-    { value: 'available', label: 'Available' }
-  ];
   const priceRanges = [
-    { value: 'all', label: 'All Prices' },
-    { value: '0-10', label: '€0 - €10' },
-    { value: '10-25', label: '€10 - €25' },
-    { value: '25-50', label: '€25 - €50' },
-    { value: '50+', label: '€50+' }
+    { value: 'all', label: 'All Prices', min: 0, max: null },
+    { value: '0-25', label: 'AED 0 - AED 25', min: 0, max: 25 },
+    { value: '25-50', label: 'AED 25 - AED 50', min: 25, max: 50 },
+    { value: '50-100', label: 'AED 50 - AED 100', min: 50, max: 100 },
+    { value: '100-200', label: 'AED 100 - AED 200', min: 100, max: 200 },
+    { value: '200+', label: 'AED 200+', min: 200, max: null }
+  ];
+
+  const sortOptions = [
+    { value: 'newest', label: 'Newest First', icon: '🆕' },
+    { value: 'name', label: 'Name A-Z', icon: '📝' },
+    { value: 'price-low', label: 'Price: Low to High', icon: '💰' },
+    { value: 'price-high', label: 'Price: High to Low', icon: '💎' },
+    { value: 'stock', label: 'Most Stock', icon: '📦' }
   ];
   const [showLoginModal, setShowLoginModal] = useState(false);
   // Function to trigger login modal from child
@@ -264,23 +574,18 @@ const ProductListPage = () => {
     loadWishlist();
   }, [isAuthenticated]);
 
-  // Utility to get cached products (same logic as in productService)
-  const getCachedProducts = () => {
-    const cache = localStorage.getItem('all_products_cache');
-    const timestamp = localStorage.getItem('all_products_cache_timestamp');
-    const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-    if (cache && timestamp) {
-      const age = Date.now() - Number(timestamp);
-      if (age < CACHE_TTL_MS) {
-        try {
-          return JSON.parse(cache);
-        } catch {
-          return null;
-        }
+  // Handle clicking outside to close dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.relative')) {
+        // Close all dropdowns when clicking outside
+        // This will be handled by the CustomSelect component's internal state
       }
-    }
-    return null;
-  };
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -326,66 +631,77 @@ const ProductListPage = () => {
   // Get price for selected price list
   const getPrice = (product, priceListId = selectedPriceList) => {
     if (!product) return 0;
+    
+    // Handle new price structure with prices array
     if (product.prices && Array.isArray(product.prices)) {
       const priceItem = product.prices.find(p => p.PriceList === priceListId);
-      return priceItem ? priceItem.Price : 0;
-    } else if (product.ItemPrices && Array.isArray(product.ItemPrices)) {
-      const priceItem = product.ItemPrices.find(p => p.PriceList === priceListId);
-      return priceItem ? priceItem.Price : 0;
+      return priceItem ? parseFloat(priceItem.Price) : 0;
     }
-    // fallback for old structure
+    
+    // Handle ItemPrices structure
+    if (product.ItemPrices && Array.isArray(product.ItemPrices)) {
+      const priceItem = product.ItemPrices.find(p => p.PriceList === priceListId);
+      return priceItem ? parseFloat(priceItem.Price) : 0;
+    }
+    
+    // Handle direct price field
     if (product.price) {
-      let priceNum = parseFloat((product.price + '').replace('€', ''));
+      const priceNum = parseFloat(String(product.price).replace(/[^\d.-]/g, ''));
       return isNaN(priceNum) ? 0 : priceNum;
     }
+    
+    // Handle price by type
+    if (product.priceType && product.price) {
+      const priceNum = parseFloat(String(product.price).replace(/[^\d.-]/g, ''));
+      return isNaN(priceNum) ? 0 : priceNum;
+    }
+    
     return 0;
   };
 
-  // Filtering logic
-  const filteredProducts = products.filter(product => {
-    // Status filter
-    if (selectedStatus !== 'all') {
-      if (selectedStatus === 'halal' && product.halal !== 'tYES' && product.Properties1 !== 'tYES') return false;
-      if (selectedStatus === 'frozen' && product.frozen !== 'tYES' && product.Frozen !== 'tYES') return false;
-      if (selectedStatus === 'inStock' && (product.stock ?? product.QuantityOnStock ?? 0) <= 0) return false;
-      if (selectedStatus === 'outOfStock' && (product.stock ?? product.QuantityOnStock ?? 0) > 0) return false;
-      if (selectedStatus === 'available' && !product.isAvailable) return false;
-    }
-    // Price range filter
-    if (priceRange !== 'all') {
-      const price = getPrice(product);
-      if (priceRange === '0-10' && (price < 0 || price > 10)) return false;
-      if (priceRange === '10-25' && (price < 10 || price > 25)) return false;
-      if (priceRange === '25-50' && (price < 25 || price > 50)) return false;
-      if (priceRange === '50+' && price < 50) return false;
-    }
-    // Search filter
-    if (searchTerm) {
-      const searchText = searchTerm.toLowerCase();
-      const productName = (product.ItemName || product.name || '').toLowerCase();
-      const productCode = (product.ItemCode || product.code || '').toLowerCase();
-      return productName.includes(searchText) || productCode.includes(searchText);
-    }
-    return true;
-  });
-  // Sorting logic
-  const sortedProducts = [...filteredProducts].sort((a, b) => {
-    switch (sortBy) {
-      case 'name':
-        return (a.ItemName || '').localeCompare(b.ItemName || '');
-      case 'price-low':
-        return getPrice(a) - getPrice(b);
-      case 'price-high':
-        return getPrice(b) - getPrice(a);
-      case 'stock':
-        return (b.stock ?? b.QuantityOnStock ?? 0) - (a.stock ?? a.QuantityOnStock ?? 0);
-      case 'code':
-        return (a.ItemCode || '').localeCompare(b.ItemCode || '');
-      case 'newest':
-      default:
-        return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
-    }
-  });
+  // Memoized filtering logic for better performance
+  const filteredProducts = React.useMemo(() => {
+    return products.filter(product => {
+      // Price range filter
+      if (priceRange !== 'all') {
+        const price = getPrice(product);
+        const selectedRange = priceRanges.find(range => range.value === priceRange);
+        if (selectedRange) {
+          if (selectedRange.min !== null && price < selectedRange.min) return false;
+          if (selectedRange.max !== null && price > selectedRange.max) return false;
+        }
+      }
+      
+      // Search filter
+      if (searchTerm) {
+        const searchText = searchTerm.toLowerCase();
+        const productName = (product.ItemName || product.name || '').toLowerCase();
+        const productCode = (product.ItemCode || product.code || '').toLowerCase();
+        return productName.includes(searchText) || productCode.includes(searchText);
+      }
+      return true;
+    });
+  }, [products, priceRange, searchTerm, getPrice, priceRanges]);
+  // Memoized sorting logic for better performance
+  const sortedProducts = React.useMemo(() => {
+    return [...filteredProducts].sort((a, b) => {
+      switch (sortBy) {
+        case 'name':
+          return (a.ItemName || '').localeCompare(b.ItemName || '');
+        case 'price-low':
+          return getPrice(a) - getPrice(b);
+        case 'price-high':
+          return getPrice(b) - getPrice(a);
+        case 'stock':
+          return (b.stock ?? b.QuantityOnStock ?? 0) - (a.stock ?? a.QuantityOnStock ?? 0);
+        case 'code':
+          return (a.ItemCode || '').localeCompare(b.ItemCode || '');
+        case 'newest':
+        default:
+          return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+      }
+    });
+  }, [filteredProducts, sortBy, getPrice]);
   // Pagination logic (use sortedProducts instead of filteredProducts)
   const totalPages = Math.ceil(sortedProducts.length / productsPerPage);
   const paginatedProducts = sortedProducts.slice(
@@ -395,38 +711,11 @@ const ProductListPage = () => {
 
   const { addToCart, getCartItem, isInCart, updateCartItem, removeFromCart, cart } = useCart();
 
-  // Format price display
-  const formatPrice = (product) => {
-    if (!isAuthenticated()) return '';
-    const price = getPrice(product);
-    return price ? `د.إ${price.toFixed(2)}` : '';
-  };
-
-  // Get badges (halal, frozen, etc.)
-  const getBadges = (product) => {
-    const badges = [];
-    if (product.halal === 'tYES' || product.Properties1 === 'tYES') badges.push('Halal');
-    if (product.frozen === 'tYES' || product.Frozen === 'tYES') badges.push('Frozen');
-    if (product.isAvailable) badges.push('Available');
-    if (product.badges && Array.isArray(product.badges)) badges.push(...product.badges);
-    return badges;
-  };
-
-  // Get stock
-  const getStock = (product) => {
-    return product.stock ?? product.QuantityOnStock ?? 0;
-  };
 
   // Get product name
   const getProductName = (product) => {
     return product.ItemName || product.name || '';
   };
-
-  // Get product code
-  const getProductCode = (product) => {
-    return product.ItemCode || product.code || '';
-  };
-
   // Get product images
   const getProductImages = (product) => {
     if (product.images && product.images.length > 0) return product.images;
@@ -436,18 +725,100 @@ const ProductListPage = () => {
     ];
   };
 
-  // When user types in the search box, update the URL
-  const handleSearchInputChange = (e) => {
-    const value = e.target.value;
-    setSearchTerm(value);
+
+
+  // Update URL only when search is submitted (not on every keystroke)
+  const handleSearchSubmit = () => {
+    setShowSuggestions(false);
     const params = new URLSearchParams(location.search);
-    if (value) {
-      params.set('search', value);
+    if (searchTerm) {
+      params.set('search', searchTerm);
     } else {
       params.delete('search');
     }
     navigate({ search: params.toString() }, { replace: true });
   };
+
+
+
+  // Fetch product name suggestions as user types with debouncing
+  useEffect(() => {
+    let active = true;
+    let timeoutId;
+    
+    if (searchTerm && searchFocused && searchTerm.length >= 2) {
+      // Debounce the API call to prevent excessive requests
+      timeoutId = setTimeout(() => {
+        setSuggestionLoading(true);
+        webService.suggestProductNames(searchTerm).then(res => {
+          if (active) {
+            const suggestions = res.data?.data || [];
+            setSuggestions(suggestions);
+            setShowSuggestions(suggestions.length > 0);
+          }
+        }).catch((err) => {
+          if (active) {
+            setSuggestions([]);
+            setShowSuggestions(false);
+          }
+        }).finally(() => {
+          if (active) setSuggestionLoading(false);
+        });
+      }, 300); // 300ms debounce delay
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+    setHighlightedIndex(-1);
+    
+    return () => { 
+      active = false; 
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [searchTerm, searchFocused]);
+
+  // Handle search input change
+  const handleSearchInputChange = (e) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+    setShowSuggestions(true);
+  };
+
+
+
+  // Handle suggestion click
+  const handleSuggestionClick = (name) => {
+    setSearchTerm(name);
+    setShowSuggestions(false);
+    
+    // Find the product by name and navigate to it
+    const product = products.find(p => 
+      (p.ItemName || p.name || '').toLowerCase().includes(name.toLowerCase())
+    );
+    
+    if (product) {
+      navigate(`/product/${product._id || product.id}`);
+    }
+  };
+
+  // Handle keyboard navigation
+  const handleKeyDown = (e) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex(prev => (prev + 1) % suggestions.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
+    } else if (e.key === 'Enter') {
+      if (highlightedIndex >= 0 && highlightedIndex < suggestions.length) {
+        handleSuggestionClick(suggestions[highlightedIndex]);
+      } else {
+        handleSearchSubmit();
+      }
+    }
+  };
+
 
   // Loading state
   if (loading) {
@@ -489,7 +860,7 @@ const ProductListPage = () => {
     );
   }
 
-  return (
+    return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Error State */}
@@ -501,113 +872,167 @@ const ProductListPage = () => {
         {/* Only show controls and products if no error */}
         {!error && (
           <>
-        {/* Filter & View Controls */}
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8 w-full">
-              {/* Left: Filters */}
-              <div className="flex flex-col sm:flex-row flex-wrap gap-3 w-full md:w-auto">
-                {/* Search */}
-                <input
-                  type="text"
-                  placeholder="Search products by name or code..."
-                  value={searchTerm}
-                  onChange={handleSearchInputChange}
-                  className="px-4 py-2 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 text-gray-800 bg-white shadow-sm min-w-[220px]"
-                />
-                {/* Status Filter */}
-                <select
-                  value={selectedStatus}
-                  onChange={e => setSelectedStatus(e.target.value)}
-                  className="px-4 py-2 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 text-gray-800 bg-white shadow-sm min-w-[140px]"
-                >
-                  {statusOptions.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-                {/* Price Range Filter */}
-                <select
-                  value={priceRange}
-                  onChange={e => setPriceRange(e.target.value)}
-                  className="px-4 py-2 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 text-gray-800 bg-white shadow-sm min-w-[120px]"
-                >
-                  {priceRanges.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-                {/* Sort By */}
-                <select
-                  value={sortBy}
-                  onChange={e => setSortBy(e.target.value)}
-                  className="px-4 py-2 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 text-gray-800 bg-white shadow-sm min-w-[130px]"
-                >
-                  <option value="newest">Newest First</option>
-                  <option value="name">By Name</option>
-                  <option value="code">By Code</option>
-                  <option value="price-low">Price: Low to High</option>
-                  <option value="price-high">Price: High to Low</option>
-                  <option value="stock">By Stock</option>
-                </select>
-                {/* Price List Selector */}
-                <select
-                  value={selectedPriceList}
-                  onChange={e => setSelectedPriceList(Number(e.target.value))}
-                  className="px-4 py-2 rounded-xl border border-red-200 text-red-800 font-medium bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 min-w-[140px]"
-                >
-                  {priceListOptions.map(option => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
+                                    {/* Top Filter Bar */}
+            <div className="bg-gradient-to-r from-[#8e191c] to-[#8e191c] p-4 rounded-lg mb-6">
+              <div className="flex items-center justify-between flex-wrap gap-2 md:gap-4">
+                {/* Left Side - Filters */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
+                  {/* Filters Icon and Label */}
+                  <div className="flex items-center gap-2 text-white">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
+                    </svg>
+                    <span className="font-medium">Filters:</span>
+                  </div>
+
+                  {/* Price Range Dropdown */}
+                  <CustomSelect
+                    value={priceRange}
+                    onChange={setPriceRange}
+                    options={priceRanges}
+                    placeholder="All Prices"
+                    className="min-w-[120px] sm:min-w-[140px]"
+                  />
+
+                  {/* Sort By Dropdown */}
+                  <CustomSelect
+                    value={sortBy}
+                    onChange={setSortBy}
+                    options={sortOptions}
+                    placeholder="Sort By"
+                    className="min-w-[120px] sm:min-w-[140px]"
+                  />
+
+                  {/* Price List Dropdown */}
+                  <CustomSelect
+                    value={selectedPriceList}
+                    onChange={(val) => setSelectedPriceList(Number(val))}
+                    options={priceListOptions}
+                    placeholder="Price List"
+                    className="min-w-[140px] sm:min-w-[160px]"
+                  />
+                </div>
+
+                {/* Right Side - Search */}
+                <div className="flex-1 w-full sm:max-w-md">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search products..."
+                      value={searchTerm}
+                      onChange={handleSearchInputChange}
+                      onKeyDown={handleKeyDown}
+                      onFocus={() => { setSearchFocused(true); setShowSuggestions(true); }}
+                      onBlur={() => { setSearchFocused(false); setTimeout(() => setShowSuggestions(false), 200); }}
+                      className="w-full px-3 py-2 rounded-xl border-2 border-white bg-white text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#8e191c] shadow-md text-sm"
+                    />
+                    <button
+                      onClick={handleSearchSubmit}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#8e191c] hover:text-[#8e191c]"
+                    >
+                      <Search className="w-4 h-4" />
+                    </button>
+                    
+                    {/* Suggestions Dropdown */}
+                    {showSuggestions && searchFocused && (
+                      <div className="absolute left-0 right-0 top-full bg-white border border-gray-200 rounded-lg shadow-lg z-[1200] mt-1 max-h-60 overflow-y-auto transition-all duration-200 ease-in-out animate-fade-in">
+                        {suggestionLoading ? (
+                          <div className="p-3 text-center text-gray-400 text-sm flex items-center justify-center gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin" /> Loading...
+                          </div>
+                        ) : suggestions.length === 0 && searchTerm ? (
+                          <div className="p-3 text-center text-gray-400 text-sm">No results found</div>
+                        ) : (
+                          suggestions.map((name, idx) => (
+                            <div
+                              key={idx}
+                              className={`px-4 py-2 flex items-center gap-2 cursor-pointer text-gray-800 text-sm transition-all duration-150 ${highlightedIndex === idx ? 'bg-[#8e191c] text-white font-semibold' : 'hover:bg-[#8e191c]/10'}`}
+                              onMouseDown={() => handleSuggestionClick(name)}
+                              onMouseEnter={() => setHighlightedIndex(idx)}
+                            >
+                              <Search className={`w-4 h-4 ${highlightedIndex === idx ? 'text-white' : 'text-[#8e191c]'}`} />
+                              {name}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
-              {/* Right: View mode and count */}
-              <div className="flex items-center gap-4 ml-auto mt-2 md:mt-0">
-            <div className="flex bg-white rounded-lg p-1 shadow-md">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-2 rounded transition-colors ${
-                  viewMode === 'grid' ? 'bg-red-500 text-white' : 'text-gray-600'
-                }`}
-              >
-                <Grid size={18} />
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-2 rounded transition-colors ${
-                  viewMode === 'list' ? 'bg-red-500 text-white' : 'text-gray-600'
-                }`}
-              >
-                <List size={18} />
-              </button>
+
+            {/* View Controls */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-4">
+                <div className="flex bg-white rounded-xl p-1 shadow-md border border-gray-200">
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`p-2 rounded-lg transition-all duration-200 ${
+                      viewMode === 'grid' ? 'text-white shadow-md' : 'text-gray-600 hover:text-gray-800'
+                    }`}
+                    style={{
+                      backgroundColor: viewMode === 'grid' ? '#8e191c' : 'transparent',
+                      border: viewMode === 'grid' ? '2px solid white' : '2px solid transparent'
+                    }}
+                  >
+                    <Grid size={16} className="sm:w-[18px] sm:h-[18px]" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`p-2 rounded-lg transition-all duration-200 ${
+                      viewMode === 'list' ? 'text-white shadow-md' : 'text-gray-600 hover:text-gray-800'
+                    }`}
+                    style={{
+                      backgroundColor: viewMode === 'list' ? '#8e191c' : 'transparent',
+                      border: viewMode === 'list' ? '2px solid white' : '2px solid transparent'
+                    }}
+                  >
+                    <List size={16} className="sm:w-[18px] sm:h-[18px]" />
+                  </button>
+                </div>
+              </div>
             </div>
-                <span className="text-gray-600 whitespace-nowrap">
-                  Showing {sortedProducts.length} products
-                </span>
-          </div>
-        </div>
-        {/* Products Grid */}
-        <div className={`grid gap-6 ${
-          viewMode === 'grid' 
-            ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6' 
-            : 'grid-cols-1'
-        }`}>
-          {paginatedProducts.map((product, index) => (
-            <div 
-              key={product._id || product.id}
-              className="animate-fade-in"
-              style={{ 
-                animationDelay: `${index * 50}ms`,
-                animationFillMode: 'both'
-              }}
-            >
-              <ProductCard 
-                product={product}
-                onAddToCart={addToCart}
-                onToggleWishlist={toggleWishlist}
-                isInWishlist={isInWishlist(product._id || product.id)}
-                index={index}
-                triggerLoginModal={triggerLoginModal}
-              />
+            
+            {/* Products Grid/List */}
+            <div className={`${
+              viewMode === 'grid' 
+                ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6' 
+                : 'grid grid-cols-1 md:grid-cols-2 gap-4'
+            }`}>
+              {paginatedProducts.map((product, index) => (
+                <div 
+                  key={product._id || product.id}
+                  className="animate-fade-in"
+                  style={{ 
+                    animationDelay: `${index * 50}ms`,
+                    animationFillMode: 'both'
+                  }}
+                >
+                  {viewMode === 'grid' ? (
+                    <ProductCard 
+                      product={product}
+                      onAddToCart={addToCart}
+                      onToggleWishlist={toggleWishlist}
+                      isInWishlist={isInWishlist(product._id || product.id)}
+                      index={index}
+                      triggerLoginModal={triggerLoginModal}
+                      selectedPriceList={selectedPriceList}
+                    />
+                  ) : (
+                    <ProductListCard 
+                      product={product}
+                      onAddToCart={addToCart}
+                      onToggleWishlist={toggleWishlist}
+                      isInWishlist={isInWishlist(product._id || product.id)}
+                      index={index}
+                      triggerLoginModal={triggerLoginModal}
+                      selectedPriceList={selectedPriceList}
+                    />
+                  )}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
         {/* Pagination Controls */}
         {totalPages > 1 && (
           <div className="flex justify-center items-center gap-2 mt-8">
@@ -778,7 +1203,11 @@ const ProductListPage = () => {
                         </span>
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-xs" style={{ color: '#8e191c' }}>
-                            د.إ{productPrice.toFixed(2)}
+                            {isAuthenticated() ? (
+                              `AED ${productPrice.toFixed(2)}`
+                            ) : (
+                              'Login to see price'
+                            )}
                           </span>
                           <span className="font-medium">×{item.quantity}</span>
                         </div>
@@ -788,31 +1217,35 @@ const ProductListPage = () => {
                 </div>
                 <div className="flex justify-between items-center pt-3 border-t border-gray-200">
                   <span className="font-bold text-gray-800">
-                    Total: د.إ{cart.items.reduce((total, item) => {
-                      let itemPrice = 0;
-                      
-                      // Use item.price if available and valid
-                      if (typeof item.price === 'number' && !isNaN(item.price) && item.price > 0) {
-                        itemPrice = item.price;
-                      } else {
-                        // Try to find product and get its price
-                        const productId = item.product._id || item.product.id || item.product;
-                        const product = products.find(p => 
-                          (p._id === productId) || 
-                          (p.id === productId) || 
-                          (String(p._id) === String(productId)) || 
-                          (String(p.id) === String(productId))
-                        );
+                    {isAuthenticated() ? (
+                      `Total: AED ${cart.items.reduce((total, item) => {
+                        let itemPrice = 0;
                         
-                        if (product) {
-                          itemPrice = getPrice(product);
-                        } else if (item.product && typeof item.product === 'object') {
-                          itemPrice = getPrice(item.product) || 0;
+                        // Use item.price if available and valid
+                        if (typeof item.price === 'number' && !isNaN(item.price) && item.price > 0) {
+                          itemPrice = item.price;
+                        } else {
+                          // Try to find product and get its price
+                          const productId = item.product._id || item.product.id || item.product;
+                          const product = products.find(p => 
+                            (p._id === productId) || 
+                            (p.id === productId) || 
+                            (String(p._id) === String(productId)) || 
+                            (String(p.id) === String(productId))
+                          );
+                          
+                          if (product) {
+                            itemPrice = getPrice(product);
+                          } else if (item.product && typeof item.product === 'object') {
+                            itemPrice = getPrice(item.product) || 0;
+                          }
                         }
-                      }
-                      
-                      return total + (itemPrice * item.quantity);
-                    }, 0).toFixed(2)}
+                        
+                        return total + (itemPrice * item.quantity);
+                      }, 0).toFixed(2)}`
+                    ) : (
+                      'Login to see total'
+                    )}
                   </span>
                   <button 
                     onClick={() => navigate('/cart')}

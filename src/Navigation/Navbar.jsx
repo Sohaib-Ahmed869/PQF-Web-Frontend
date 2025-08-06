@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, User, ShoppingCart, MapPin, ChevronDown, Menu, Truck, MousePointer, Package, Globe, Star, Heart, Clock, Sparkles, Plus, X, Zap, Loader2, ArrowRight, Grid3X3, Layers, Store } from 'lucide-react';
+import { User, ShoppingCart, MapPin, ChevronDown, Menu, Truck, MousePointer, Package, Globe, Star, Heart, Clock, Sparkles, Plus, X, Zap, Loader2, ArrowRight, Grid3X3, Layers, Store } from 'lucide-react';
 
 import webService from '../services/Website/WebService';
 import logo from "../assets/PQF-22.png"
@@ -23,7 +23,6 @@ const FuturisticNavbar = () => {
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState(null);
-  const [searchFocused, setSearchFocused] = useState(false);
   const [expandedCategory, setExpandedCategory] = useState(null);
   const [expandedSections, setExpandedSections] = useState({
     'Fresh Food': false,
@@ -33,7 +32,6 @@ const FuturisticNavbar = () => {
     'Other Categories': false
   });
   const [particles, setParticles] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef(null);
   const [dropdownAlign, setDropdownAlign] = useState('right');
   const dropdownContainerRef = useRef(null);
@@ -45,11 +43,7 @@ const FuturisticNavbar = () => {
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [categoryError, setCategoryError] = useState(null);
 
-  // Product name suggestions state
-  const [suggestions, setSuggestions] = useState([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [suggestionLoading, setSuggestionLoading] = useState(false);
-  const [highlightedIndex, setHighlightedIndex] = useState(-1); // NEW: for keyboard navigation
+
 
   // Replace local wishlistCount state with global context
   const wishlistCount = wishlistItems.size;
@@ -134,36 +128,7 @@ const FuturisticNavbar = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch product name suggestions as user types
-  useEffect(() => {
-    let active = true;
-    if (searchQuery && searchFocused) {
-      setSuggestionLoading(true);
-      webService.suggestProductNames(searchQuery).then(res => {
-        if (active) {
-          const suggestions = res.data?.data || [];
-          setSuggestions(suggestions);
-          // Show suggestions dropdown if there are results
-          setShowSuggestions(suggestions.length > 0);
-          // Debug log
-          console.log('Suggestions API result:', suggestions);
-        }
-      }).catch((err) => {
-        if (active) {
-          setSuggestions([]);
-          setShowSuggestions(false);
-          console.error('Suggestions API error:', err);
-        }
-      }).finally(() => {
-        if (active) setSuggestionLoading(false);
-      });
-    } else {
-      setSuggestions([]);
-      setShowSuggestions(false);
-    }
-    setHighlightedIndex(-1); // Reset highlight on new query
-    return () => { active = false; };
-  }, [searchQuery, searchFocused]);
+
 
   // Outside click handler
   useEffect(() => {
@@ -233,42 +198,7 @@ const FuturisticNavbar = () => {
     return groupIcons[groupName] || '📂';
   };
 
-  // Handle search
-  const handleSearch = async () => {
-    setShowSuggestions(false);
-    if (searchQuery && searchQuery.trim()) {
-      // Try to find an exact product match
-      try {
-        const res = await webService.searchProducts(searchQuery.trim());
-        const products = res.data?.data || [];
-        // Try to find an exact match by name or code
-        const exact = products.find(
-          p => (p.ItemName || p.name || '').toLowerCase() === searchQuery.trim().toLowerCase() ||
-               (p.ItemCode || p.code || '').toLowerCase() === searchQuery.trim().toLowerCase()
-        );
-        if (exact && (exact._id || exact.id)) {
-          navigate(`/products/${exact._id || exact.id}`);
-          return;
-        }
-      } catch (err) {
-        // fallback to normal search
-      }
-      navigate(`/products?search=${encodeURIComponent(searchQuery.trim())}`);
-    }
-  };
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
-  };
-
-  // Handle suggestion click
-  const handleSuggestionClick = (name) => {
-    setSearchQuery(name);
-    setShowSuggestions(false);
-    handleSearch();
-  };
 
   // Handle section expand/collapse
   const toggleSection = (sectionName) => {
@@ -322,36 +252,7 @@ const FuturisticNavbar = () => {
     setIsMenuOpen(false);
   };
 
-  const handleKeyDown = (e) => {
-    if (!showSuggestions || suggestions.length === 0) return;
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setHighlightedIndex(prev => (prev + 1) % suggestions.length);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setHighlightedIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
-    } else if (e.key === 'Enter') {
-      if (highlightedIndex >= 0 && highlightedIndex < suggestions.length) {
-        handleSuggestionClick(suggestions[highlightedIndex]);
-      } else {
-        handleSearch();
-      }
-    }
-  };
 
-  // Helper to highlight matching text
-  const highlightMatch = (text, query) => {
-    if (!query) return text;
-    const idx = text.toLowerCase().indexOf(query.toLowerCase());
-    if (idx === -1) return text;
-    return (
-      <>
-        {text.slice(0, idx)}
-        <span className="bg-yellow-200 text-red-700 font-semibold rounded px-0.5">{text.slice(idx, idx + query.length)}</span>
-        {text.slice(idx + query.length)}
-      </>
-    );
-  };
 
   return (
     <div className="bg-white shadow-lg relative z-[1000]">
@@ -399,109 +300,16 @@ const FuturisticNavbar = () => {
 
             {/* Mobile Menu Button */}
             <div className="md:hidden flex items-center space-x-2">
-              <div className="flex-1 max-w-xs">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search..."
-                    value={searchQuery}
-                    onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
-                    onKeyPress={handleKeyPress}
-                    onKeyDown={handleKeyDown}
-                    className="w-full pl-4 pr-10 py-2 bg-white border-2 border-gray-200 rounded-lg outline-none font-medium placeholder-gray-400 text-gray-800 text-sm focus:border-red-500"
-                    onFocus={() => { setSearchFocused(true); setShowSuggestions(true); }}
-                    onBlur={() => { setSearchFocused(false); setTimeout(() => setShowSuggestions(false), 200); }}
-                  />
-                  <button 
-                    onClick={handleSearch}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-red-500"
-                  >
-                    <Search className="w-4 h-4" />
-                  </button>
-                  {/* Suggestions Dropdown (Mobile) */}
-                  {showSuggestions && searchFocused && (
-                    <div className="absolute left-0 right-0 top-full bg-white border border-gray-200 rounded-lg shadow-lg z-[1200] mt-1 max-h-60 overflow-y-auto transition-all duration-200 ease-in-out animate-fade-in">
-                      {suggestionLoading ? (
-                        <div className="p-3 text-center text-gray-400 text-sm flex items-center justify-center gap-2">
-                          <Loader2 className="w-4 h-4 animate-spin" /> Loading...
-                        </div>
-                      ) : suggestions.length === 0 && searchQuery ? (
-                        <div className="p-3 text-center text-gray-400 text-sm">No results found</div>
-                      ) : (
-                        suggestions.map((name, idx) => (
-                          <div
-                            key={idx}
-                            className={`px-4 py-2 flex items-center gap-2 cursor-pointer text-gray-800 text-sm transition-all duration-150 ${highlightedIndex === idx ? 'bg-red-50 text-red-700 font-semibold' : 'hover:bg-red-50'}`}
-                            onMouseDown={() => handleSuggestionClick(name)}
-                            onMouseEnter={() => setHighlightedIndex(idx)}
-                          >
-                            <Search className="w-4 h-4 text-red-400" />
-                            {highlightMatch(name, searchQuery)}
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
               <button
                 className="p-2 rounded-lg bg-white border border-gray-200 shadow-sm focus:outline-none"
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 aria-label="Open menu"
               >
-                {isMenuOpen ? <X className="w-6 h-6 text-red-600" /> : <Menu className="w-6 h-6 text-red-600" />}
+                {isMenuOpen ? <X className="w-6 h-6 text-[#8e191c]" /> : <Menu className="w-6 h-6 text-[#8e191c]" />}
               </button>
             </div>
 
-            {/* Desktop Search Bar */}
-            <div className="flex-1 max-w-2xl mx-8 hidden md:block">
-              <div className="relative group">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search for products, brands and more..."
-                    value={searchQuery}
-                    onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
-                    onKeyPress={handleKeyPress}
-                    onKeyDown={handleKeyDown}
-                    className="relative w-full pl-6 pr-14 py-3 bg-white border-2 border-gray-200 rounded-lg transition-all duration-300 outline-none font-medium placeholder-gray-400 text-gray-800 focus:border-red-600 focus:shadow-lg"
-                    onFocus={() => { setSearchFocused(true); setShowSuggestions(true); }}
-                    onBlur={() => { setSearchFocused(false); setTimeout(() => setShowSuggestions(false), 200); }}
-                  />
-                  <button 
-                    onClick={handleSearch}
-                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-red-600 transition-colors"
-                  >
-                    <Search className="w-5 h-5" />
-                  </button>
-                  {/* Suggestions Dropdown (Desktop) */}
-                  {showSuggestions && searchFocused && (
-                    <div className="absolute left-0 right-0 top-full bg-white border border-gray-200 rounded-lg shadow-lg z-[1200] mt-1 max-h-72 overflow-y-auto transition-all duration-200 ease-in-out animate-fade-in">
-                      {suggestionLoading ? (
-                        <div className="p-4 text-center text-gray-400 text-sm flex items-center justify-center gap-2">
-                          <Loader2 className="w-5 h-5 animate-spin" /> Loading...
-                        </div>
-                      ) : suggestions.length === 0 && searchQuery ? (
-                        <div className="p-4 text-center text-gray-400 text-sm">No results found</div>
-                      ) : (
-                        suggestions.map((name, idx) => (
-                          <div
-                            key={idx}
-                            className={`px-6 py-3 flex items-center gap-2 cursor-pointer text-gray-800 text-base transition-all duration-150 ${highlightedIndex === idx ? 'bg-red-50 text-red-700 font-semibold' : 'hover:bg-red-50'}`}
-                            onMouseDown={() => handleSuggestionClick(name)}
-                            onMouseEnter={() => setHighlightedIndex(idx)}
-                          >
-                            <Search className="w-5 h-5 text-red-400" />
-                            {highlightMatch(name, searchQuery)}
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+
 
             {/* Desktop Right Actions */}
             <div className="flex items-center space-x-4 hidden md:flex">
@@ -513,7 +321,7 @@ const FuturisticNavbar = () => {
                     onClick={() => setUserDropdownOpen((open) => !open)}
                     onBlur={() => setTimeout(() => setUserDropdownOpen(false), 150)}
                   >
-                    <User className="w-6 h-6 text-red-600" />
+                    <User className="w-6 h-6 text-[#8e191c]" />
                     <span>{user?.name || user?.email || 'Account'}</span>
                     <ChevronDown className="w-4 h-4 ml-1 text-gray-500" />
                   </button>
@@ -541,7 +349,7 @@ const FuturisticNavbar = () => {
                     onClick={() => setAuthDropdownOpen((open) => !open)}
                     onBlur={() => setTimeout(() => setAuthDropdownOpen(false), 150)}
                   >
-                    <User className="w-6 h-6 text-red-600" />
+                    <User className="w-6 h-6 text-[#8e191c]" />
                     <span>Login & Register</span>
                     <ChevronDown className="w-4 h-4 ml-1 text-gray-500" />
                   </button>
@@ -571,7 +379,7 @@ const FuturisticNavbar = () => {
                 aria-label="Change delivery or pickup location"
                 type="button"
               >
-                <MapPin className="w-4 h-4 text-red-600" />
+                <MapPin className="w-4 h-4 text-[#8e191c]" />
                 <div className="text-left">
                   <div className="text-xs text-gray-500">{orderType === 'pickup' ? 'Pick up from' : 'Deliver to'}</div>
                   <div className="text-sm font-semibold text-gray-800">
@@ -589,9 +397,9 @@ const FuturisticNavbar = () => {
                 onClick={() => navigate('/wishlist')}
                 aria-label="Wishlist"
               >
-                <Heart size={28} className={wishlistCount > 0 ? 'text-red-500 text-red-500' : 'text-gray-700'} />
+                <Heart size={28} className={wishlistCount > 0 ? 'text-[#8e191c] text-[#8e191c]' : 'text-gray-700'} />
                 {wishlistCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-2 py-0.5 min-w-[20px] text-center font-bold">
+                  <span className="absolute -top-1 -right-1 bg-[#8e191c] text-white text-xs rounded-full px-2 py-0.5 min-w-[20px] text-center font-bold">
                     {wishlistCount}
                   </span>
                 )}
@@ -607,14 +415,14 @@ const FuturisticNavbar = () => {
                 {cart?.items && cart.items.length > 0 && (
                   <>
                     {/* Item count badge */}
-                    <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full px-2 py-0.5 min-w-[20px] text-center font-bold">
+                    <span className="absolute -top-1 -right-1 bg-[#8e191c] text-white text-xs rounded-full px-2 py-0.5 min-w-[20px] text-center font-bold">
                       {cart.items.reduce((total, item) => total + item.quantity, 0)}
                     </span>
                     {/* Price display for desktop */}
                     <div className="hidden md:block text-sm">
                       <div className="text-gray-600">Cart</div>
-                      <div className="font-semibold text-red-600">
-                        د.إ{cart.total ? cart.total.toFixed(2) : '0.00'}
+                      <div className="font-semibold text-[#8e191c]">
+                        AED {cart.total ? cart.total.toFixed(2) : '0.00'}
                       </div>
                     </div>
                   </>
@@ -683,7 +491,7 @@ const FuturisticNavbar = () => {
                         onMouseLeave={() => setActiveDropdown(null)}
                       >
                         <div className="flex items-center space-x-3 mb-4 pb-3 border-b border-gray-100">
-                          <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                          <div className="w-10 h-10 bg-[#8e191c]/10 rounded-lg flex items-center justify-center">
                             <span className="text-xl">{getCategoryIcon(category.name)}</span>
                           </div>
                           <div>
@@ -705,7 +513,7 @@ const FuturisticNavbar = () => {
                           ))}
                         </div>
                         <button 
-                          className="w-full mt-4 bg-red-600 text-white py-2 rounded-lg font-medium hover:bg-red-700 transition-all"
+                          className="w-full mt-4 bg-[#8e191c] text-white py-2 rounded-lg font-medium hover:bg-[#8e191c]/80 transition-all"
                           onClick={() => handleCategoryClick(category)}
                         >
                           View All {category.name} →
@@ -762,7 +570,7 @@ const FuturisticNavbar = () => {
                   {/* Fresh Food Section */}
                   <div className="border-b border-gray-200">
                     <div 
-                      className="p-3 bg-red-50 flex items-center justify-between cursor-pointer hover:bg-red-100 transition-colors"
+                      className="p-3 bg-[#8e191c]/5 flex items-center justify-between cursor-pointer hover:bg-[#8e191c]/10 transition-colors"
                       onClick={() => toggleSection('Fresh Food')}
                     >
                       <span className="text-[#8e191c] font-medium text-sm">Fresh Food</span>
@@ -778,7 +586,7 @@ const FuturisticNavbar = () => {
                         ).map((category) => (
                           <div 
                             key={category._id}
-                            className="p-3 hover:bg-red-50 cursor-pointer border-b border-gray-100 flex items-center justify-between group transition-colors"
+                            className="p-3 hover:bg-[#8e191c]/5 cursor-pointer border-b border-gray-100 flex items-center justify-between group transition-colors"
                             onClick={() => handleCategoryClick(category)}
                           >
                             <span className="text-[#8e191c] text-sm pl-6">{category.name} <span className='text-gray-500 font-normal'>({category.itemCount || 0})</span></span>
@@ -922,7 +730,7 @@ const FuturisticNavbar = () => {
             <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-[#8e191c] to-[#b91c1c]">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-red-500 bg-opacity-20 rounded-lg flex items-center justify-center">
+                  <div className="w-10 h-10 bg-[#8e191c] bg-opacity-20 rounded-lg flex items-center justify-center">
                     <Grid3X3 className="w-5 h-5 text-white" />
                   </div>
                   <div>
@@ -942,12 +750,12 @@ const FuturisticNavbar = () => {
             <div className="flex-1 overflow-y-auto">
               {loadingCategories ? (
                 <div className="flex justify-center py-8">
-                  <Loader2 className="w-8 h-8 text-red-600 animate-spin" />
+                  <Loader2 className="w-8 h-8 text-[#8e191c] animate-spin" />
                 </div>
               ) : categoryError ? (
                 <div className="text-center py-8 px-4">
-                  <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <X className="w-6 h-6 text-red-600" />
+                  <div className="w-12 h-12 bg-[#8e191c]/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <X className="w-6 h-6 text-[#8e191c]" />
                   </div>
                   <p className="text-gray-600">{categoryError}</p>
                 </div>

@@ -24,6 +24,7 @@ import ViewOrdersPage from './UserPages/ViewOrdersPage';
 import OrderDetailsPage from './UserPages/OrderDetailsPage';
 import OrderReceiptPage from './UserPages/OrderReceiptPage';
 import WishlistPage from './ProductsPage/components/WishlistPage';
+import IndividualProduct from './ProductsPage/components/IndividualProduct';
 import { WishlistProvider } from './context/WishlistContext';
 import OrderTracking from './UserPages/OrderTracking';
 import OrderManagement from './AdminPages/OrderManagement/OrderPage';
@@ -97,6 +98,7 @@ function App() {
                 <Route path="/user/order-tracking/:trackingNumber?" element={<OrderTracking />} />
 
                 <Route path="/wishlist" element={<WishlistPage />} />
+                <Route path="/product/:id" element={<IndividualProduct />} />
 
                 {/* Order Tracking route */}
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useWishlist } from '../../context/WishlistContext';
 import userService from '../../services/userService';
 import WebService from '../../services/Website/WebService';
@@ -6,7 +6,181 @@ import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { Heart, ShoppingCart, Trash2 } from 'lucide-react';
-import LoaderOverlay from '../../components/LoaderOverlay';
+
+// Add CSS for fade-in animation and lazy loading
+const fadeInStyle = `
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .animate-fade-in {
+    animation: fadeIn 0.6s ease-out forwards;
+  }
+  .lazy-load {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.6s ease-out;
+  }
+  .lazy-load.loaded {
+    opacity: 1;
+    transform: translateY(0);
+  }
+`;
+
+// Inject the CSS
+const styleSheet = document.createElement('style');
+styleSheet.textContent = fadeInStyle;
+document.head.appendChild(styleSheet);
+
+// Lazy Loading Component
+const LazyProductCard = React.memo(({ product, index, onRemove, onAddToCart, inCart, isRemoving, productPrice, isAuthenticated, getCartItem, updateCartItem, removeFromCart, navigate, isLastProduct, lastProductRef }) => {
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const itemId = String(product._id || product.id);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoaded(true);
+    }, index * 100); // Stagger the loading
+
+    return () => clearTimeout(timer);
+  }, [index]);
+
+  const handleImageLoad = () => {
+    setImageLoaded(true);
+  };
+
+  return (
+    <div 
+      ref={isLastProduct ? lastProductRef : null}
+      className={`group cursor-pointer lazy-load ${isLoaded ? 'loaded' : ''}`}
+      onClick={() => navigate(`/product/${itemId}`)}
+      style={{
+        animationDelay: `${index * 50}ms`
+      }}
+    >
+      <div className="relative bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300">
+        {/* Image Container */}
+        <div className="relative aspect-square overflow-hidden">
+          <img 
+            src={product.image || (product.images && product.images[0]) || 'https://images.unsplash.com/photo-1502741338009-cac2772e18bc?auto=format&fit=crop&w=400&q=80'}
+            alt={product.ItemName || product.name}
+            className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+            loading="lazy"
+            onLoad={handleImageLoad}
+            onError={(e) => {
+              e.target.src = 'https://images.unsplash.com/photo-1502741338009-cac2772e18bc?auto=format&fit=crop&w=400&q=80';
+              setImageLoaded(true);
+            }}
+          />
+          
+          {/* Loading placeholder */}
+          {!imageLoaded && (
+            <div className="absolute inset-0 bg-gray-200 animate-pulse flex items-center justify-center">
+              <div className="w-8 h-8 border-2 border-gray-300 border-t-[#8e191c] rounded-full animate-spin"></div>
+            </div>
+          )}
+          
+          {/* Remove from Wishlist Button - Always visible */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove(itemId);
+            }}
+            disabled={isRemoving || false}
+            className={`absolute top-3 right-3 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center backdrop-blur-sm hover:scale-110 transition-all duration-200 ${
+              isRemoving ? 'cursor-not-allowed' : ''
+            }`}
+            title="Remove from wishlist"
+          >
+            {isRemoving ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400"></div>
+            ) : (
+              <Trash2 size={16} className="text-red-500" />
+            )}
+          </button>
+        </div>
+        
+        {/* Product Info */}
+        <div className="relative p-4">
+          {/* Product Name */}
+          <h3 className="text-sm font-semibold text-gray-800 text-center truncate mb-2">
+            {product.ItemName || product.name}
+          </h3>
+          
+          {/* Price */}
+          <div className="text-center mb-3">
+            <span className="text-sm font-medium" style={{ color: '#8e191c' }}>
+              {isAuthenticated() ? (
+                `AED ${productPrice ? productPrice.toFixed(2) : '0.00'}`
+              ) : (
+                'Login to see price'
+              )}
+            </span>
+          </div>
+          
+          {/* Add to Cart Section */}
+          <div className="flex items-center gap-2">
+            {inCart ? (
+              <div className="flex items-center gap-2 w-full py-2 px-4 rounded-lg font-medium" style={{ backgroundColor: '#8e191c', color: 'white' }}>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if ((getCartItem(itemId)?.quantity || 1) === 1) {
+                      removeFromCart(itemId);
+                    } else {
+                      updateCartItem(itemId, (getCartItem(itemId)?.quantity || 1) - 1);
+                    }
+                  }}
+                  disabled={getCartItem(itemId)?.quantity <= 0 || product.QuantityOnStock === 0}
+                  className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center"
+                >
+                  -
+                </button>
+                <span className="flex-1 text-center font-medium">{getCartItem(itemId)?.quantity || 1}</span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    updateCartItem(itemId, (getCartItem(itemId)?.quantity || 1) + 1);
+                  }}
+                  disabled={product.QuantityOnStock !== undefined && getCartItem(itemId)?.quantity >= product.QuantityOnStock}
+                  className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center"
+                >
+                  +
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddToCart(itemId);
+                }}
+                disabled={product.QuantityOnStock !== undefined && product.QuantityOnStock === 0}
+                className="w-full py-2 px-4 rounded-lg font-medium text-white"
+                style={{
+                  backgroundColor: product.QuantityOnStock === 0 ? '#gray-400' : '#8e191c'
+                }}
+              >
+                <span className="flex items-center justify-center">
+                  <ShoppingCart className="w-4 h-4 mr-2" />
+                  {product.QuantityOnStock === 0 ? 'Out of Stock' : 'Add to Cart'}
+                </span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+LazyProductCard.displayName = 'LazyProductCard';
 
 const WishlistPage = () => {
   const { wishlistItems, toggleWishlist, loading: wishlistLoading, error } = useWishlist();
@@ -15,8 +189,15 @@ const WishlistPage = () => {
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState('');
   const [removingItems, setRemovingItems] = useState(new Set());
+  const [visibleProducts, setVisibleProducts] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const observer = useRef();
   const navigate = useNavigate();
   const { addToCart, getCartItem, updateCartItem, removeFromCart } = useCart();
+  
+  const ITEMS_PER_PAGE = 12;
 
   useEffect(() => {
     const fetchWishlistProducts = async () => {
@@ -91,6 +272,41 @@ const WishlistPage = () => {
     fetchWishlistProducts();
   }, [isAuthenticated, wishlistItems]);
 
+  // Reset pagination when products change
+  useEffect(() => {
+    setCurrentPage(1);
+    setVisibleProducts(products.slice(0, ITEMS_PER_PAGE));
+    setHasMore(products.length > ITEMS_PER_PAGE);
+  }, [products]);
+
+  // Load more products
+  const loadMore = useCallback(() => {
+    if (loadingMore || !hasMore) return;
+    
+    setLoadingMore(true);
+    const nextPage = currentPage + 1;
+    const startIndex = (nextPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const newProducts = products.slice(startIndex, endIndex);
+    
+    setVisibleProducts(prev => [...prev, ...newProducts]);
+    setCurrentPage(nextPage);
+    setHasMore(endIndex < products.length);
+    setLoadingMore(false);
+  }, [currentPage, products, loadingMore, hasMore]);
+
+  // Intersection Observer for infinite scroll
+  const lastProductRef = useCallback(node => {
+    if (loadingMore) return;
+    if (observer.current) observer.current.disconnect();
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore) {
+        loadMore();
+      }
+    });
+    if (node) observer.current.observe(node);
+  }, [loadingMore, hasMore, loadMore]);
+
   const handleRemoveFromWishlist = async (itemId) => {
     const stringItemId = String(itemId);
     
@@ -151,7 +367,30 @@ const WishlistPage = () => {
   };
 
   if (loading) {
-    return <LoaderOverlay text="Loading wishlist..." />;
+    return (
+      <div className="max-w-6xl mx-auto py-8 px-4">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800">My Wishlist</h1>
+            <p className="text-gray-600 mt-1">Loading...</p>
+          </div>
+        </div>
+        
+        {/* Loading skeleton */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+          {[...Array(12)].map((_, index) => (
+            <div key={index} className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden animate-pulse">
+              <div className="aspect-square bg-gray-200"></div>
+              <div className="p-4">
+                <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded mb-3"></div>
+                <div className="h-8 bg-gray-200 rounded"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   if (!products.length) {
@@ -204,122 +443,54 @@ const WishlistPage = () => {
         </div>
       )}
       
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {products.map(product => {
-          const itemId = String(product._id || product.id);
-          const inCart = !!getCartItem(itemId);
-          const isRemoving = removingItems.has(itemId);
-          const productPrice = getProductPrice(product);
-          
-          return (
-            <div key={itemId} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden group">
-              {/* Product Image */}
-              <div className="relative aspect-square overflow-hidden bg-gray-100">
-                <img
-                  src={product.image || (product.images && product.images[0]) || 'https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80'}
-                  alt={product.ItemName || product.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 cursor-pointer"
-                  onClick={() => navigate(`/products/${itemId}`)}
-                />
-                
-                {/* Remove button overlay */}
-                <button
-                  onClick={() => handleRemoveFromWishlist(itemId)}
-                  disabled={isRemoving || wishlistLoading}
-                  className={`absolute top-3 right-3 p-2 rounded-full shadow-lg transition-all duration-200 ${
-                    isRemoving 
-                      ? 'bg-gray-300 cursor-not-allowed' 
-                      : 'bg-white hover:bg-red-50 hover:scale-110'
-                  }`}
-                  title="Remove from wishlist"
-                >
-                  {isRemoving ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400"></div>
-                  ) : (
-                    <Trash2 size={16} className="text-red-500" />
-                  )}
-                </button>
-                
-                {/* Stock status */}
-                {product.QuantityOnStock !== undefined && (
-                  <div className={`absolute top-3 left-3 px-2 py-1 rounded-full text-xs font-semibold ${
-                    product.QuantityOnStock > 0 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {product.QuantityOnStock > 0 ? 'In Stock' : 'Out of Stock'}
-                  </div>
-                )}
-              </div>
-              
-              {/* Product Details */}
-              <div className="p-4 space-y-3">
-                <div>
-                  <h3 
-                    className="font-semibold text-lg text-gray-800 line-clamp-2 cursor-pointer hover:text-red-600 transition-colors"
-                    onClick={() => navigate(`/products/${itemId}`)}
-                  >
-                    {product.ItemName || product.name}
-                  </h3>
-                  {product.ItemCode && (
-                    <p className="text-gray-500 text-sm">Code: {product.ItemCode}</p>
-                  )}
-                </div>
-                
-                {/* Price */}
-                {productPrice > 0 && (
-                  <div className="text-lg font-bold text-gray-900">
-                    {formatPrice(productPrice)}
-                  </div>
-                )}
-                
-                {/* Action Buttons */}
-                <div className="flex gap-2">
-                  {/* Remove button removed, only trash icon overlay remains */}
-                  {inCart ? (
-                    <div className="flex items-center gap-2 bg-red-500 text-white rounded-xl px-3 py-2 flex-1">
-                      <button
-                        onClick={() => {
-                          if ((getCartItem(itemId)?.quantity || 1) === 1) {
-                            removeFromCart(itemId);
-                          } else {
-                            updateCartItem(itemId, (getCartItem(itemId)?.quantity || 1) - 1);
-                          }
-                        }}
-                        disabled={getCartItem(itemId)?.quantity <= 0 || product.QuantityOnStock === 0}
-                        className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
-                        aria-label="Decrease quantity"
-                      >
-                        -
-                      </button>
-                      <span className="flex-1 text-center font-medium">{getCartItem(itemId)?.quantity || 1}</span>
-                      <button
-                        onClick={() => updateCartItem(itemId, (getCartItem(itemId)?.quantity || 1) + 1)}
-                        disabled={product.QuantityOnStock !== undefined && getCartItem(itemId)?.quantity >= product.QuantityOnStock}
-                        className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
-                        aria-label="Increase quantity"
-                      >
-                        +
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => handleAddToCart(itemId)}
-                      disabled={product.QuantityOnStock !== undefined && product.QuantityOnStock === 0}
-                      className={`flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white font-medium py-2.5 px-4 rounded-xl hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}
-                    >
-                      <ShoppingCart size={16} className="mr-2" />
-                      {product.QuantityOnStock === 0 ? 'Out of Stock' : 'Add to Cart'}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
+             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+         {visibleProducts.map((product, index) => {
+           const itemId = String(product._id || product.id);
+           const inCart = !!getCartItem(itemId);
+           const isRemoving = removingItems.has(itemId);
+           const productPrice = getProductPrice(product);
+           const isLastProduct = index === visibleProducts.length - 1;
+           
+           return (
+             <LazyProductCard
+               key={itemId}
+               product={product}
+               index={index}
+               onRemove={handleRemoveFromWishlist}
+               onAddToCart={handleAddToCart}
+               inCart={inCart}
+               isRemoving={isRemoving}
+               productPrice={productPrice}
+               isAuthenticated={isAuthenticated}
+               getCartItem={getCartItem}
+               updateCartItem={updateCartItem}
+               removeFromCart={removeFromCart}
+               navigate={navigate}
+               isLastProduct={isLastProduct}
+               lastProductRef={lastProductRef}
+             />
+           );
+         })}
+       </div>
+       
+       {/* Loading More Indicator */}
+       {loadingMore && (
+         <div className="flex justify-center items-center py-8">
+           <div className="flex items-center gap-3">
+             <div className="w-6 h-6 border-2 border-gray-300 border-t-[#8e191c] rounded-full animate-spin"></div>
+             <span className="text-gray-600">Loading more products...</span>
+           </div>
+         </div>
+       )}
+       
+       {/* No More Products Indicator */}
+       {!hasMore && visibleProducts.length > 0 && (
+         <div className="text-center py-8">
+           <p className="text-gray-500">No more products to load</p>
+         </div>
+       )}
+     </div>
+   );
+ };
 
 export default WishlistPage;

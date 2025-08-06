@@ -809,7 +809,7 @@ const CheckoutPageContent = () => {
     }
     
     const totalAmount = totals.totalPrice; // Charge per order for recurring orders
-    const amount = `د.إ${totalAmount.toFixed(2)}`;
+    const amount = `AED${totalAmount.toFixed(2)}`;
     
     switch (paymentMethod) {
       case 'card':
@@ -1231,7 +1231,7 @@ const CheckoutPageContent = () => {
                           <div className="flex justify-between items-center">
                             <span className="text-[#8e191c] font-medium">{item.title}</span>
                             <span className="font-semibold text-[#8e191c]">
-                              د.إ{(item.price * item.quantity).toFixed(2)}
+                              AED{(item.price * item.quantity).toFixed(2)}
                             </span>
                           </div>
                           <div className="ml-4 mt-1 text-sm text-black">
@@ -1242,7 +1242,7 @@ const CheckoutPageContent = () => {
                     </div>
                     <div className="border-t border-[#8e191c]/30 mt-3 pt-3">
                       <div className="flex justify-between items-center text-[#8e191c] font-bold">
-                        <span>Total: د.إ{totals.totalPrice.toFixed(2)}</span>
+                        <span>Total: AED{totals.totalPrice.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
@@ -1417,7 +1417,7 @@ const CheckoutPageContent = () => {
                       <p className="text-gray-600 text-xs mt-1">Qty: {item.quantity}</p>
                     </div>
                     <p className="text-black font-bold text-base">
-                      د.إ{(item.price * item.quantity).toFixed(2)}
+                      AED{(item.price * item.quantity).toFixed(2)}
                     </p>
                   </div>
                 ))}
@@ -1426,7 +1426,7 @@ const CheckoutPageContent = () => {
               <div className="border-t-2 border-gray-200 pt-4 space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-700 font-semibold">Subtotal</span>
-                  <span className="text-black font-bold text-lg">د.إ{totals.itemsPrice.toFixed(2)}</span>
+                  <span className="text-black font-bold text-lg">AED{totals.itemsPrice.toFixed(2)}</span>
                 </div>
                 
                 {/* Recurring Order Summary */}
@@ -1446,7 +1446,7 @@ const CheckoutPageContent = () => {
                       <div className="flex items-center justify-between">
                         <span className="text-[#8e191c]/80 text-sm">Per Order:</span>
                         <span className="text-[#8e191c] font-bold text-lg">
-                          د.إ{totals.totalPrice.toFixed(2)}
+                          AED{totals.totalPrice.toFixed(2)}
                         </span>
                       </div>
                     </div>
@@ -1457,7 +1457,7 @@ const CheckoutPageContent = () => {
                   <div className="flex justify-between items-center">
                     <span className="text-black font-bold text-xl">Total</span>
                     <span className="text-[#8e191c] font-bold text-2xl">
-                      د.إ{totals.totalPrice.toFixed(2)}
+                      AED{totals.totalPrice.toFixed(2)}
                     </span>
                   </div>
                   {orderFrequency === 'recurring' && (
@@ -1465,7 +1465,7 @@ const CheckoutPageContent = () => {
                       <div className="flex items-center">
                         <div className="w-2 h-2 bg-[#8e191c]/60 rounded-full mr-2"></div>
                         <span className="text-xs text-[#8e191c]/80 font-medium">
-                          You will be charged د.إ{totals.totalPrice.toFixed(2)} every {recurringOptions.frequency.replace('-', ' ')}
+                          You will be charged AED{totals.totalPrice.toFixed(2)} every {recurringOptions.frequency.replace('-', ' ')}
                         </span>
                       </div>
                     </div>
