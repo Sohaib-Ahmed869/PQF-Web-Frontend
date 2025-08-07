@@ -41,7 +41,7 @@ const OrderDetail = ({
   if (!order) return null;
 
   // Format functions
-  const formatPrice = (price) => `د.إ${price.toFixed(2)}`;
+  const formatPrice = (price) => `AED ${price.toFixed(2)}`;
   const formatDate = (dateString) => new Date(dateString).toLocaleDateString();
   const formatDateTime = (dateString) => new Date(dateString).toLocaleString();
 
@@ -164,6 +164,8 @@ const OrderDetail = ({
 
                 {/* Order Items */}
                 <OrderItems order={order} formatPrice={formatPrice} />
+
+
               </div>
 
               {/* Right Column - Order Status and Details */}

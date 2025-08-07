@@ -12,6 +12,7 @@ import GoogleSuccess from './UserRegistration/GoogleSuccess';
 import BannerPage from './AdminPages/BannerManagement/BannerPage';
 import CategoryPage from './AdminPages/CategoryManagement/CategoryPage';
 import ProductPage from './AdminPages/ProductManagement/ProductPage';
+import PromotionPage from './AdminPages/PromotionManagement/PromotionPage';
 import Cart from './components/Cart';
 import SuperAdminBannerPage from './SuperAdminPages/BannerMangement/BannerPage';
 import SuperAdminStorePage from './SuperAdminPages/StoreManagement/StorePage';
@@ -26,6 +27,9 @@ import OrderReceiptPage from './UserPages/OrderReceiptPage';
 import WishlistPage from './ProductsPage/components/WishlistPage';
 import IndividualProduct from './ProductsPage/components/IndividualProduct';
 import { WishlistProvider } from './context/WishlistContext';
+import { PromotionProvider } from './context/PromotionContext';
+import { StoreProvider } from './context/StoreContext';
+import PromotionsPage from './pages/PromotionsPage';
 import OrderTracking from './UserPages/OrderTracking';
 import OrderManagement from './AdminPages/OrderManagement/OrderPage';
 import DisputePage from './AdminPages/DisputeManagement/DisputePage';
@@ -60,8 +64,10 @@ const Layout = ({ children }) => {
 function App() {
   return (
     <AuthProvider>
-      <CartProvider>
-        <WishlistProvider>
+      <StoreProvider>
+        <CartProvider>
+          <WishlistProvider>
+            <PromotionProvider>
           <BrowserRouter>
             <Layout>
               <Routes>
@@ -80,6 +86,7 @@ function App() {
                 <Route path="/admin/categories" element={<CategoryPage />} />
                 <Route path="/admin/products" element={<ProductPage />} />
                 <Route path="/admin/orders" element={<OrderManagement />} />
+                <Route path="/admin/promotions" element={<PromotionPage />} />
                 <Route path="/admin/users" element={<UserManagementPage />} />
                 <Route path="/admin/disputes" element={<DisputePage />} />
                 <Route path="/admin/abandoned-carts" element={<AbandonedCartManagement />} />
@@ -98,6 +105,7 @@ function App() {
                 <Route path="/user/order-tracking/:trackingNumber?" element={<OrderTracking />} />
 
                 <Route path="/wishlist" element={<WishlistPage />} />
+                <Route path="/promotions" element={<PromotionsPage />} />
                 <Route path="/product/:id" element={<IndividualProduct />} />
 
                 {/* Order Tracking route */}
@@ -106,8 +114,10 @@ function App() {
               </Routes>
             </Layout>
           </BrowserRouter>
-        </WishlistProvider>
-      </CartProvider>
+            </PromotionProvider>
+          </WishlistProvider>
+        </CartProvider>
+      </StoreProvider>
     </AuthProvider>
   );
 }

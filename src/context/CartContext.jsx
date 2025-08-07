@@ -18,7 +18,15 @@ export const useCart = () => {
 export const CartProvider = ({ children }) => {
   const { token, isAuthenticated, user } = useAuth();
   const { selectedStore } = useStore();
-  const [cart, setCart] = useState({ items: [], total: 0 });
+  const [cart, setCart] = useState({ 
+    items: [], 
+    total: 0,
+    originalTotal: 0,
+    finalTotal: 0,
+    totalDiscount: 0,
+    appliedPromotions: [],
+    appliedDiscounts: []
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -26,13 +34,71 @@ export const CartProvider = ({ children }) => {
     console.log('Cart state updated:', cart);
   }, [cart]);
 
-  // Calculate cart total
-  const calculateTotal = (items) => {
-    return items.reduce((sum, item) => {
+  // Enhanced calculate total with proper discount handling
+  const calculateTotal = (items, appliedDiscounts = []) => {
+    // Calculate the base total from items
+    const itemsTotal = items.reduce((sum, item) => {
       const price = item.price || 0;
       const quantity = item.quantity || 0;
-      return sum + (price * quantity);
+      
+      // If item is free or has free quantity, only charge for the non-free portion
+      if (item.isFreeItem) {
+        // If the entire item is free, don't add anything to total
+        return sum;
+      } else if (item.freeQuantity && item.freeQuantity > 0) {
+        // If item has free quantity, only charge for the non-free portion
+        const chargeableQuantity = quantity - item.freeQuantity;
+        return sum + (price * Math.max(0, chargeableQuantity));
+      } else {
+        // Regular item, charge full price
+        return sum + (price * quantity);
+      }
     }, 0);
+
+    // Calculate total discount from applied promotions
+    const totalDiscount = appliedDiscounts.reduce((sum, discount) => {
+      return sum + (discount.discountAmount || 0);
+    }, 0);
+
+    return {
+      originalTotal: itemsTotal,
+      totalDiscount: totalDiscount,
+      finalTotal: Math.max(0, itemsTotal - totalDiscount)
+    };
+  };
+
+  // Process cart data from backend
+  const processCartData = (cartData) => {
+    const items = Array.isArray(cartData.items) ? cartData.items : [];
+    const appliedDiscounts = cartData.appliedDiscounts || [];
+    const appliedPromotions = cartData.appliedPromotions || [];
+
+    // Calculate totals
+    const totals = calculateTotal(items, appliedDiscounts);
+
+    // Debug: Log cart processing for development
+    // console.log('🛒 Processing cart data:', {
+    //   itemsCount: items.length,
+    //   appliedPromotions: appliedPromotions.length,
+    //   appliedDiscounts: appliedDiscounts.length,
+    //   backendTotals: {
+    //     originalTotal: cartData.originalTotal,
+    //     finalTotal: cartData.finalTotal,
+    //     totalDiscount: cartData.totalDiscount
+    //   },
+    //   calculatedTotals: totals
+    // });
+
+    return {
+      ...cartData,
+      items,
+      appliedDiscounts,
+      appliedPromotions,
+      originalTotal: cartData.originalTotal || totals.originalTotal,
+      totalDiscount: cartData.totalDiscount || totals.totalDiscount,
+      finalTotal: cartData.finalTotal || totals.finalTotal,
+      total: cartData.finalTotal || totals.finalTotal, // Keep for backward compatibility
+    };
   };
 
   // Load cart from backend or localStorage
@@ -46,28 +112,52 @@ export const CartProvider = ({ children }) => {
           // Load from backend for authenticated users
           const res = await cartService.getCart(token);
           const cartData = res.data?.data || res.data || { items: [] };
-          cartData.total = calculateTotal(Array.isArray(cartData.items) ? cartData.items : []);
-          setCart(cartData);
+          const processedCart = processCartData(cartData);
+          setCart(processedCart);
         } else {
           // Load from localStorage for guests
           const localCart = localStorage.getItem('guest_cart');
           if (localCart) {
             try {
               const parsedCart = JSON.parse(localCart);
-              parsedCart.total = calculateTotal(parsedCart.items || []);
-              setCart(parsedCart);
+              const processedCart = processCartData(parsedCart);
+              setCart(processedCart);
             } catch (e) {
               console.error('Error parsing local cart:', e);
-              setCart({ items: [], total: 0 });
+              setCart({ 
+                items: [], 
+                total: 0,
+                originalTotal: 0,
+                finalTotal: 0,
+                totalDiscount: 0,
+                appliedPromotions: [],
+                appliedDiscounts: []
+              });
             }
           } else {
-            setCart({ items: [], total: 0 });
+            setCart({ 
+              items: [], 
+              total: 0,
+              originalTotal: 0,
+              finalTotal: 0,
+              totalDiscount: 0,
+              appliedPromotions: [],
+              appliedDiscounts: []
+            });
           }
         }
       } catch (err) {
         console.error('Error loading cart:', err);
         setError('Failed to load cart');
-        setCart({ items: [], total: 0 });
+        setCart({ 
+          items: [], 
+          total: 0,
+          originalTotal: 0,
+          finalTotal: 0,
+          totalDiscount: 0,
+          appliedPromotions: [],
+          appliedDiscounts: []
+        });
       } finally {
         setLoading(false);
       }
@@ -83,8 +173,6 @@ export const CartProvider = ({ children }) => {
     }
   }, [cart, isAuthenticated, loading]);
 
-  // Remove all guest cart logic and syncing
-
   // Cart actions
   const addToCart = async (productId, quantity = 1, shouldReload = true) => {
     if (!isAuthenticated() || !token) {
@@ -96,8 +184,8 @@ export const CartProvider = ({ children }) => {
       // Add to backend for authenticated users
       const res = await cartService.addItem(productId, quantity, token, selectedStore?._id);
       const cartData = res.data?.data || res.data || { items: [] };
-      cartData.total = calculateTotal(Array.isArray(cartData.items) ? cartData.items : []);
-      setCart(cartData);
+      const processedCart = processCartData(cartData);
+      setCart(processedCart);
     } catch (err) {
       console.error('Error adding to cart:', err);
       setError('Failed to add item to cart');
@@ -112,20 +200,17 @@ export const CartProvider = ({ children }) => {
       if (isAuthenticated() && token) {
         const res = await cartService.removeItem(productId, token, storeId || selectedStore?._id);
         const cartData = res.data?.data || res.data || { items: [] };
-        cartData.total = calculateTotal(Array.isArray(cartData.items) ? cartData.items : []);
-        setCart(cartData);
+        const processedCart = processCartData(cartData);
+        setCart(processedCart);
       } else {
-        const newCart = { 
-          ...cart, 
-          items: cart.items.filter(
-            item => {
-              const itemProductId = item.product?._id || item.product?.id || item.product;
-              return String(itemProductId) !== String(productId);
-            }
-          ) 
-        };
-        newCart.total = calculateTotal(newCart.items);
-        setCart(newCart);
+        const newItems = cart.items.filter(
+          item => {
+            const itemProductId = item.product?._id || item.product?.id || item.product;
+            return String(itemProductId) !== String(productId);
+          }
+        );
+        const processedCart = processCartData({ ...cart, items: newItems });
+        setCart(processedCart);
       }
     } catch (err) {
       console.error('Error removing from cart:', err);
@@ -145,8 +230,8 @@ export const CartProvider = ({ children }) => {
       if (isAuthenticated() && token) {
         const res = await cartService.updateItem(productId, quantity, token, selectedStore?._id);
         const cartData = res.data?.data || res.data || { items: [] };
-        cartData.total = calculateTotal(Array.isArray(cartData.items) ? cartData.items : []);
-        setCart(cartData);
+        const processedCart = processCartData(cartData);
+        setCart(processedCart);
       } else {
         const newCart = { ...cart };
         const itemIndex = newCart.items.findIndex(
@@ -158,8 +243,8 @@ export const CartProvider = ({ children }) => {
         
         if (itemIndex > -1) {
           newCart.items[itemIndex].quantity = quantity;
-          newCart.total = calculateTotal(newCart.items);
-          setCart(newCart);
+          const processedCart = processCartData(newCart);
+          setCart(processedCart);
         }
       }
     } catch (err) {
@@ -173,13 +258,29 @@ export const CartProvider = ({ children }) => {
     if (isAuthenticated() && token) {
       try {
         await cartService.clearCart(token, selectedStore?._id);
-        setCart({ items: [], total: 0 });
+        setCart({ 
+          items: [], 
+          total: 0,
+          originalTotal: 0,
+          finalTotal: 0,
+          totalDiscount: 0,
+          appliedPromotions: [],
+          appliedDiscounts: []
+        });
       } catch (err) {
         setError('Failed to clear cart');
         console.error('Error clearing cart:', err);
       }
     } else {
-      setCart({ items: [], total: 0 });
+      setCart({ 
+        items: [], 
+        total: 0,
+        originalTotal: 0,
+        finalTotal: 0,
+        totalDiscount: 0,
+        appliedPromotions: [],
+        appliedDiscounts: []
+      });
       localStorage.removeItem('guest_cart');
     }
   };
@@ -190,7 +291,15 @@ export const CartProvider = ({ children }) => {
     try {
       if (isAuthenticated() && token) {
         const res = await cartService.checkout(token, orderData);
-        setCart({ items: [], total: 0 });
+        setCart({ 
+          items: [], 
+          total: 0,
+          originalTotal: 0,
+          finalTotal: 0,
+          totalDiscount: 0,
+          appliedPromotions: [],
+          appliedDiscounts: []
+        });
         return res.data;
       } else {
         // For guests, you might want to redirect to login or handle guest checkout
@@ -237,8 +346,8 @@ export const CartProvider = ({ children }) => {
       // Refresh the cart to get the updated state
       const cartRes = await cartService.getCart(token);
       const cartData = cartRes.data?.data || cartRes.data || { items: [] };
-      cartData.total = calculateTotal(Array.isArray(cartData.items) ? cartData.items : []);
-      setCart(cartData);
+      const processedCart = processCartData(cartData);
+      setCart(processedCart);
       return response.data.data;
     } catch (err) {
       console.error('Error reordering items:', err);
@@ -262,13 +371,30 @@ export const CartProvider = ({ children }) => {
       // Refresh the cart to get the updated state
       const cartRes = await cartService.getCart(token);
       const cartData = cartRes.data?.data || cartRes.data || { items: [] };
-      cartData.total = calculateTotal(Array.isArray(cartData.items) ? cartData.items : []);
-      setCart(cartData);
+      const processedCart = processCartData(cartData);
+      setCart(processedCart);
       return response.data.data;
     } catch (err) {
       console.error('Error reordering items from abandoned cart:', err);
       setError('Failed to reorder items from abandoned cart');
       throw err;
+    }
+  };
+
+  // Method to refresh cart data (useful after promotions)
+  const refreshCart = async () => {
+    if (isAuthenticated() && token) {
+      try {
+        const res = await cartService.getCart(token);
+        const cartData = res.data?.data || res.data || { items: [] };
+        const processedCart = processCartData(cartData);
+        setCart(processedCart);
+        return processedCart;
+      } catch (err) {
+        console.error('Error refreshing cart:', err);
+        setError('Failed to refresh cart');
+        throw err;
+      }
     }
   };
 
@@ -285,6 +411,7 @@ export const CartProvider = ({ children }) => {
     isInCart,
     getCartItem,
     setCart,
+    refreshCart,
     reorderItems,
     reorderAbandonedCart,
   };

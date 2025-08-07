@@ -46,7 +46,7 @@ const OrderList = ({
   setError
 }) => {
   // Format functions
-  const formatPrice = (price) => `د.إ${price.toFixed(2)}`;
+  const formatPrice = (price) => `AED ${price.toFixed(2)}`;
   const formatDate = (dateString) => new Date(dateString).toLocaleDateString();
 
   // Status options with counts
@@ -190,7 +190,7 @@ const OrderList = ({
       </div>
       
       {/* Stats Dashboard */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
         <StatCard
           title="Total Orders"
           value={stats.total}
@@ -218,6 +218,13 @@ const OrderList = ({
           icon={FiDollarSign}
           color="bg-gradient-to-r from-[#7c3aed] to-[#8b5cf6]"
           subtitle={`Avg: ${formatPrice(stats.avgOrderValue)}`}
+        />
+        <StatCard
+          title="Customer Savings"
+          value={formatPrice(stats.totalSavings || 0)}
+          icon={FiTag}
+          color="bg-gradient-to-r from-[#10b981] to-[#34d399]"
+          subtitle={`${stats.discountedOrders || 0} orders with discounts`}
         />
       </div>
 
@@ -255,6 +262,7 @@ const OrderList = ({
               onOrderDetails={onOrderDetails}
               formatPrice={formatPrice}
               formatDate={formatDate}
+              showDiscounts={true}
             />
           ) : (
             <OrderListView 
@@ -262,6 +270,7 @@ const OrderList = ({
               onOrderDetails={onOrderDetails}
               formatPrice={formatPrice}
               formatDate={formatDate}
+              showDiscounts={true}
             />
           )}
 

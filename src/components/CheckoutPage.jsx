@@ -138,8 +138,48 @@ const CheckoutPageContent = () => {
 
   // No need to calculate end date since we're charging monthly on the same date
 
+  // Helper function to normalize cart items for display
+  const normalizeCartItems = (items) => {
+    if (!items || !Array.isArray(items)) return [];
+    
+    return items.map(item => {
+      // Handle nested product structure
+      const product = item.product || {};
+      
+      // Check if this item has free quantity or is a free item
+      const isFreeItem = item.isFreeItem || false;
+      const freeQuantity = item.freeQuantity || 0;
+      const regularQuantity = item.quantity - freeQuantity;
+      
+      const normalizedItem = {
+        _id: item._id || product._id || product.id || `item-${Math.random()}`,
+        title: item.title || item.name || product.ItemName || product.name || "Product",
+        name: item.name || product.ItemName || product.name || "Product",
+        price: item.price || product.price || product.PriceList?.[0]?.Price || 0,
+        quantity: item.quantity || 1,
+        image: item.image || item.imageUrl || product.image || product.ImageUrl || product.Picture || "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=300",
+        imageUrl: item.imageUrl || item.image || product.image || product.ImageUrl || product.Picture || "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=300",
+        product: product,
+        // Handle free items
+        isFreeItem: isFreeItem,
+        freeQuantity: freeQuantity,
+        regularQuantity: regularQuantity
+      };
+      
+      // Ensure we have a valid image URL
+      if (!normalizedItem.image || normalizedItem.image === 'null' || normalizedItem.image === 'undefined') {
+        normalizedItem.image = "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=300";
+      }
+      
+      return normalizedItem;
+    });
+  };
+
   // Get order summary from navigation state
   const orderSummary = location.state?.orderSummary || { items: cart.items, subtotal: cart.total };
+
+  // Normalize orderSummary items with proper free item handling
+  const normalizedItems = normalizeCartItems(orderSummary?.items || cart?.items || []);
 
   let cartError = null;
 
@@ -304,16 +344,64 @@ const CheckoutPageContent = () => {
   const calculateTotals = () => {
     if (!orderSummary) return {
       itemsPrice: 0,
-      totalPrice: 0
+      totalPrice: 0,
+      totalDiscount: 0,
+      originalTotal: 0
     };
 
-    const itemsPrice = orderSummary.subtotal || 0;
-    const totalPrice = itemsPrice;
+    // Calculate base total from items (before any discounts)
+    const itemsPrice = normalizedItems.reduce((total, item) => {
+      const isFreeItem = item.isFreeItem || false;
+      const freeQuantity = item.freeQuantity || 0;
+      const regularQuantity = item.regularQuantity || (item.quantity - freeQuantity);
+      
+      // If item is entirely free
+      if (isFreeItem && freeQuantity >= item.quantity) {
+        return total; // Don't add anything to total
+      } 
+      // If item has some free quantities
+      else if (freeQuantity > 0) {
+        // Only charge for the non-free portion
+        return total + (item.price * Math.max(0, regularQuantity));
+      } 
+      // If marked as free item but no specific free quantity
+      else if (isFreeItem) {
+        return total; // Don't charge for free items
+      } 
+      // Regular item, charge full price
+      else {
+        return total + (item.price * item.quantity);
+      }
+    }, 0);
 
-    return {
-      itemsPrice,
-      totalPrice
+    // Get discount information from cart or orderSummary
+    const totalDiscount = cart.totalDiscount || orderSummary.totalDiscount || 0;
+    const originalTotal = cart.originalTotal || orderSummary.originalTotal || itemsPrice;
+    const finalTotal = cart.finalTotal || orderSummary.finalTotal || Math.max(0, originalTotal - totalDiscount);
+
+    const result = {
+      itemsPrice: originalTotal, // Use original total for display
+      totalPrice: finalTotal, // Use final total after discounts
+      totalDiscount: totalDiscount,
+      originalTotal: originalTotal
     };
+
+    // Debug: Log calculated totals
+    console.log('💰 Calculated totals in checkout:', {
+      result: result,
+      cartData: {
+        totalDiscount: cart.totalDiscount,
+        originalTotal: cart.originalTotal,
+        finalTotal: cart.finalTotal
+      },
+      orderSummaryData: {
+        totalDiscount: orderSummary.totalDiscount,
+        originalTotal: orderSummary.originalTotal,
+        finalTotal: orderSummary.finalTotal
+      }
+    });
+
+    return result;
   };
 
   const validateForm = () => {
@@ -586,13 +674,39 @@ const CheckoutPageContent = () => {
       });
       
       const orderData = {
-        orderItems: orderSummary.items.map(item => ({
-          name: item.title,
-          price: item.price,
-          quantity: item.quantity,
-          product: item._id || item.id,
-          image: item.imageUrl || item.image || "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=300"
-        })),
+        orderItems: normalizedItems.map(item => {
+          const isFreeItem = item.isFreeItem || false;
+          const freeQuantity = item.freeQuantity || 0;
+          const regularQuantity = item.quantity - freeQuantity;
+          const totalPrice = isFreeItem && freeQuantity > 0 
+            ? (regularQuantity > 0 ? item.price * regularQuantity : 0)
+            : item.price * item.quantity;
+          
+          const orderItem = {
+            name: item.title || item.name,
+            price: item.price,
+            quantity: item.quantity,
+            product: item._id || item.product?._id || item.product?.id,
+            image: item.image || item.imageUrl || "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=300",
+            isFreeItem: isFreeItem,
+            freeQuantity: freeQuantity,
+            regularQuantity: regularQuantity,
+            totalPrice: totalPrice
+          };
+          
+          // Debug: Log free items being sent
+          if (isFreeItem || freeQuantity > 0) {
+            console.log('🆓 Frontend sending free item:', {
+              name: orderItem.name,
+              isFreeItem: orderItem.isFreeItem,
+              freeQuantity: orderItem.freeQuantity,
+              regularQuantity: orderItem.regularQuantity,
+              totalPrice: orderItem.totalPrice
+            });
+          }
+          
+          return orderItem;
+        }),
         shippingAddress: deliveryMethod === 'delivery' ? {
           address: formState.shipping.street,
           city: formState.shipping.city,
@@ -609,7 +723,12 @@ const CheckoutPageContent = () => {
         pickupStore: deliveryMethod === 'pickup' ? selectedStore : undefined,
         paymentMethod: paymentMethod,
         itemsPrice: totals.itemsPrice,
-        totalPrice: totals.totalPrice, 
+        originalTotal: totals.originalTotal,
+        totalDiscount: totals.totalDiscount,
+        finalTotal: totals.totalPrice,
+        totalPrice: totals.totalPrice,
+        appliedPromotions: cart.appliedPromotions || orderSummary.appliedPromotions || [],
+        appliedDiscounts: cart.appliedDiscounts || orderSummary.appliedDiscounts || [], 
         notes: formState.notes,
         store: selectedStore?._id || selectedStore?.id || undefined,
         orderType: orderFrequency, // Use the selected order frequency
@@ -725,7 +844,15 @@ const CheckoutPageContent = () => {
           deliveryMethod: deliveryMethod,
           estimatedDelivery: orderRes.estimatedDelivery,
           orderFrequency: orderFrequency,
-          recurringOptions: orderFrequency === 'recurring' ? recurringOptions : undefined
+          recurringOptions: orderFrequency === 'recurring' ? recurringOptions : undefined,
+          // Enhanced order data with promotion information
+          orderData: {
+            originalTotal: totals.originalTotal,
+            finalTotal: totals.totalPrice,
+            totalDiscount: totals.totalDiscount,
+            appliedPromotions: cart.appliedPromotions || orderSummary.appliedPromotions || [],
+            appliedDiscounts: cart.appliedDiscounts || orderSummary.appliedDiscounts || []
+          }
         };
         
         if (!token) {
@@ -760,9 +887,56 @@ const CheckoutPageContent = () => {
     }
   };
 
+  // Debug logging
+  useEffect(() => {
+    console.log('💳 Checkout page loaded with data:', {
+      locationState: location.state,
+      orderSummary: orderSummary,
+      cart: cart,
+      normalizedItems: normalizedItems
+    });
+    console.log('CheckoutPage - orderSummary:', orderSummary);
+    console.log('CheckoutPage - normalizedItems:', normalizedItems);
+    console.log('CheckoutPage - cart:', cart);
+    
+    // Debug free items specifically
+    if (normalizedItems.length > 0) {
+      normalizedItems.forEach((item, index) => {
+        const isFreeItem = item.isFreeItem || false;
+        const freeQuantity = item.freeQuantity || 0;
+        const regularQuantity = item.regularQuantity || (item.quantity - freeQuantity);
+        
+        // Calculate the total price for this item considering free quantities
+        let itemTotalPrice;
+        if (isFreeItem && freeQuantity >= item.quantity) {
+          // Entire item is free
+          itemTotalPrice = 0;
+        } else if (freeQuantity > 0) {
+          // Some quantities are free, charge only for non-free quantities
+          itemTotalPrice = item.price * Math.max(0, regularQuantity);
+        } else if (isFreeItem) {
+          // Item is marked as free but no specific free quantity
+          itemTotalPrice = 0;
+        } else {
+          // Regular item, charge full price
+          itemTotalPrice = item.price * item.quantity;
+        }
+        
+        console.log(`Item ${index}:`, {
+          name: item.title || item.name,
+          isFreeItem: item.isFreeItem,
+          freeQuantity: item.freeQuantity,
+          quantity: item.quantity,
+          price: item.price,
+          totalPrice: itemTotalPrice
+        });
+      });
+    }
+  }, [orderSummary, normalizedItems, cart]);
+
   if (authLoading) {
     return (
-      <div className="w-full min-h-screen flex items-center justify-center">
+      <div className="w-full min-h-screen flex items-center justify-center">image.png
         <div className="flex flex-col items-center space-y-4">
           <div className="w-16 h-16 border-4 border-[#8e191c]/30 border-t-[#8e191c] rounded-full animate-spin"></div>
           <p className="text-[#8e191c] font-medium">Checking authentication...</p>
@@ -1226,19 +1400,53 @@ const CheckoutPageContent = () => {
                   <div className="bg-[#8e191c]/10 border border-[#8e191c]/30 rounded-lg p-4">
                     <h3 className="text-lg font-semibold text-[#8e191c] mb-2">Order Items</h3>
                     <div className="space-y-2">
-                      {orderSummary?.items.map((item, index) => (
-                        <div key={index}>
-                          <div className="flex justify-between items-center">
-                            <span className="text-[#8e191c] font-medium">{item.title}</span>
-                            <span className="font-semibold text-[#8e191c]">
-                              AED{(item.price * item.quantity).toFixed(2)}
-                            </span>
+                      {normalizedItems.map((item, index) => {
+                        const isFreeItem = item.isFreeItem || false;
+                        const freeQuantity = item.freeQuantity || 0;
+                        const regularQuantity = item.regularQuantity || (item.quantity - freeQuantity);
+                        
+                        // Calculate the total price for this item considering free quantities
+                        let itemTotalPrice;
+                        if (isFreeItem && freeQuantity >= item.quantity) {
+                          // Entire item is free
+                          itemTotalPrice = 0;
+                        } else if (freeQuantity > 0) {
+                          // Some quantities are free, charge only for non-free quantities
+                          itemTotalPrice = item.price * Math.max(0, regularQuantity);
+                        } else if (isFreeItem) {
+                          // Item is marked as free but no specific free quantity
+                          itemTotalPrice = 0;
+                        } else {
+                          // Regular item, charge full price
+                          itemTotalPrice = item.price * item.quantity;
+                        }
+                        
+                        return (
+                          <div key={index}>
+                            <div className="flex justify-between items-center">
+                              <span className="text-[#8e191c] font-medium">
+                                {item.title || item.name || "Product"}
+                                {(isFreeItem || freeQuantity > 0) && (
+                                  <span className="text-green-600 text-sm ml-2">
+                                    ({freeQuantity > 0 ? `${freeQuantity} FREE` : ''})
+                                  </span>
+                                )}
+                              </span>
+                              <span className="font-semibold text-[#8e191c]">
+                                {itemTotalPrice === 0 ? 'FREE' : `AED${itemTotalPrice.toFixed(2)}`}
+                              </span>
+                            </div>
+                            <div className="ml-4 mt-1 text-sm text-black">
+                              Quantity: {item.quantity}
+                              {freeQuantity > 0 && regularQuantity > 0 && (
+                                <span className="text-green-600 ml-2">
+                                  ({regularQuantity} paid + {freeQuantity} free)
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <div className="ml-4 mt-1 text-sm text-black">
-                            Quantity: {item.quantity}
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                     <div className="border-t border-[#8e191c]/30 mt-3 pt-3">
                       <div className="flex justify-between items-center text-[#8e191c] font-bold">
@@ -1402,32 +1610,101 @@ const CheckoutPageContent = () => {
               <h3 className="text-xl font-bold text-black mb-4">Order Summary</h3>
               
               <div className="space-y-3 mb-6">
-                {orderSummary?.items.map((item, index) => (
-                  <div key={index} className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                    <img 
-                      src={item.imageUrl || item.image || "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=300"} 
-                      alt={item.title}
-                      className="w-14 h-14 object-cover rounded-lg shadow-sm"
-                      onError={(e) => {
-                        e.target.src = "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=300";
-                      }}
-                    />
-                    <div className="flex-1">
-                      <p className="text-black font-semibold text-sm leading-tight">{item.title}</p>
-                      <p className="text-gray-600 text-xs mt-1">Qty: {item.quantity}</p>
+                {normalizedItems.map((item, index) => {
+                  const isFreeItem = item.isFreeItem || false;
+                  const freeQuantity = item.freeQuantity || 0;
+                  const regularQuantity = item.regularQuantity || (item.quantity - freeQuantity);
+                  
+                  // Calculate the total price for this item considering free quantities
+                  let itemTotalPrice;
+                  if (isFreeItem && freeQuantity >= item.quantity) {
+                    // Entire item is free
+                    itemTotalPrice = 0;
+                  } else if (freeQuantity > 0) {
+                    // Some quantities are free, charge only for non-free quantities
+                    itemTotalPrice = item.price * Math.max(0, regularQuantity);
+                  } else if (isFreeItem) {
+                    // Item is marked as free but no specific free quantity
+                    itemTotalPrice = 0;
+                  } else {
+                    // Regular item, charge full price
+                    itemTotalPrice = item.price * item.quantity;
+                  }
+                  
+                  return (
+                    <div key={index} className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <img 
+                        src={item.image || item.imageUrl || "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=300"} 
+                        alt={item.title || item.name || "Product"}
+                        className="w-14 h-14 object-cover rounded-lg shadow-sm"
+                        onError={(e) => {
+                          e.target.src = "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=300";
+                        }}
+                      />
+                      <div className="flex-1">
+                        <p className="text-black font-semibold text-sm leading-tight">
+                          {item.title || item.name || "Product"}
+                          
+                        </p>
+                        <div className="flex items-center justify-between mt-1">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-gray-600 text-sm">
+                              Qty: {item.quantity}
+                            </span>
+                            {freeQuantity > 0 && (
+                              <span className="text-green-600 text-sm font-medium">
+                                ({freeQuantity} FREE)
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            {(isFreeItem && freeQuantity >= item.quantity) ? (
+                              // Entire item is free
+                              <span className="text-lg font-bold text-green-600">
+                                FREE
+                              </span>
+                            ) : freeQuantity > 0 && regularQuantity > 0 ? (
+                              // Mixed: some free, some paid
+                              <div className="flex flex-col items-end">
+                                <span className="text-lg font-bold text-gray-800">
+                                  AED{itemTotalPrice.toFixed(2)}
+                                </span>
+                                <span className="text-sm text-green-600 font-medium">
+                                  + {freeQuantity} FREE
+                                </span>
+                              </div>
+                            ) : freeQuantity > 0 && regularQuantity === 0 ? (
+                              // All quantities are free
+                              <span className="text-lg font-bold text-green-600">
+                                FREE
+                              </span>
+                            ) : (
+                              // Regular item with no free quantities
+                              <span className="text-lg font-bold text-gray-800">
+                                AED{itemTotalPrice.toFixed(2)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-black font-bold text-base">
-                      AED{(item.price * item.quantity).toFixed(2)}
-                    </p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               
               <div className="border-t-2 border-gray-200 pt-4 space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-700 font-semibold">Subtotal</span>
-                  <span className="text-black font-bold text-lg">AED{totals.itemsPrice.toFixed(2)}</span>
+                  <span className="text-black font-bold text-lg">AED{totals.originalTotal.toFixed(2)}</span>
                 </div>
+                
+                {/* Show discount if any */}
+                {totals.totalDiscount > 0 && (
+                  <div className="flex justify-between items-center text-green-600">
+                    <span className="font-semibold">Discount</span>
+                    <span className="font-bold text-lg">-AED{totals.totalDiscount.toFixed(2)}</span>
+                  </div>
+                )}
                 
                 {/* Recurring Order Summary */}
                 {orderFrequency === 'recurring' && (

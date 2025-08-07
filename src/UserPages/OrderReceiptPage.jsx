@@ -690,40 +690,76 @@ const OrderReceiptPage = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200 print:bg-white">
-                      {orderItems.map((item, idx) => (
-                        <tr key={item._id} className="hover:bg-gray-50 transition-colors print:hover:bg-transparent">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {idx + 1}
-                          </td>
-                          <td className="px-6 py-4 text-sm font-medium text-gray-900 max-w-xs">
-                            {item.name}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <img 
-                              src={item.image} 
-                              alt={item.name} 
-                              className="w-12 h-12 object-contain rounded border border-gray-200" 
-                              crossOrigin="anonymous"
-                              onError={(e) => {
-                                e.target.style.display = 'none';
-                                const placeholder = document.createElement('div');
-                                placeholder.className = 'w-12 h-12 bg-gray-100 flex items-center justify-center text-lg border border-gray-200 rounded';
-                                placeholder.textContent = '📦';
-                                e.target.parentNode.insertBefore(placeholder, e.target.nextSibling);
-                              }}
-                            />
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                            {formatCurrency(item.price, payment?.currency)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                            {item.quantity}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-semibold text-gray-900">
-                            {formatCurrency(item.price * item.quantity, payment?.currency)}
-                          </td>
-                        </tr>
-                      ))}
+                      {orderItems.map((item, idx) => {
+                        const isFreeItem = item.isFreeItem || false;
+                        const freeQuantity = item.freeQuantity || 0;
+                        const regularQuantity = item.regularQuantity || (item.quantity - freeQuantity);
+                        
+                        // Calculate the total price for this item considering free quantities
+                        let itemTotalPrice;
+                        if (isFreeItem && freeQuantity >= item.quantity) {
+                          // Entire item is free
+                          itemTotalPrice = 0;
+                        } else if (freeQuantity > 0) {
+                          // Some quantities are free, charge only for non-free quantities
+                          itemTotalPrice = item.price * Math.max(0, regularQuantity);
+                        } else if (isFreeItem) {
+                          // Item is marked as free but no specific free quantity
+                          itemTotalPrice = 0;
+                        } else {
+                          // Regular item, charge full price
+                          itemTotalPrice = item.price * item.quantity;
+                        }
+                        
+                        return (
+                          <tr key={item._id} className="hover:bg-gray-50 transition-colors print:hover:bg-transparent">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {idx + 1}
+                            </td>
+                            <td className="px-6 py-4 text-sm font-medium text-gray-900 max-w-xs">
+                              <div>
+                                {item.name}
+                                {(isFreeItem || freeQuantity > 0) && (
+                                  <span className="text-green-600 text-sm ml-2">
+                                    ({freeQuantity > 0 ? `${freeQuantity} FREE` : 'FREE ITEM'})
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <img 
+                                src={item.image} 
+                                alt={item.name} 
+                                className="w-12 h-12 object-contain rounded border border-gray-200" 
+                                crossOrigin="anonymous"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                  const placeholder = document.createElement('div');
+                                  placeholder.className = 'w-12 h-12 bg-gray-100 flex items-center justify-center text-lg border border-gray-200 rounded';
+                                  placeholder.textContent = '📦';
+                                  e.target.parentNode.insertBefore(placeholder, e.target.nextSibling);
+                                }}
+                              />
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
+                              {isFreeItem && freeQuantity >= item.quantity ? 'FREE' : formatCurrency(item.price, payment?.currency)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
+                              <div>
+                                {item.quantity}
+                                {freeQuantity > 0 && regularQuantity > 0 && (
+                                  <div className="text-xs text-green-600">
+                                    ({regularQuantity} paid + {freeQuantity} free)
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-semibold text-gray-900">
+                              {itemTotalPrice === 0 ? 'FREE' : formatCurrency(itemTotalPrice, payment?.currency)}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                     <tfoot className="bg-gray-50 print:bg-gray-50">
                       <tr>

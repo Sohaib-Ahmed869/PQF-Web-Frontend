@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, ShoppingCart, MapPin, ChevronDown, Menu, Truck, MousePointer, Package, Globe, Star, Heart, Clock, Sparkles, Plus, X, Zap, Loader2, ArrowRight, Grid3X3, Layers, Store } from 'lucide-react';
+import { User, ShoppingCart, MapPin, ChevronDown, Menu, Truck, MousePointer, Package, Globe, Star, Heart, Clock, Sparkles, Plus, X, Zap, Loader2, ArrowRight, Grid3X3, Layers, Store, Tag } from 'lucide-react';
 
 import webService from '../services/Website/WebService';
 import logo from "../assets/PQF-22.png"
@@ -9,6 +9,7 @@ import { useStore } from '../context/StoreContext';
 import StoreSelector from '../Homepage/components/StoreSelector';
 import { useAuth } from '../context/AuthContext';
 import { useWishlist } from '../context/WishlistContext';
+import { usePromotion } from '../context/PromotionContext';
 import DeepLTranslateWidget from '../components/LanguageSelector';
 
 
@@ -20,6 +21,7 @@ const FuturisticNavbar = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const { wishlistItems } = useWishlist();
+  const { validPromotions } = usePromotion() || { validPromotions: [] };
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState(null);
@@ -403,6 +405,35 @@ const FuturisticNavbar = () => {
                     {wishlistCount}
                   </span>
                 )}
+              </button>
+
+              {/* Promotions */}
+              <button
+                className="relative flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg transition-all group"
+                onClick={() => navigate('/promotions')}
+                aria-label="Promotions"
+                title="View Available Promotions"
+              >
+                <Tag size={28} className={validPromotions?.length > 0 ? 'text-orange-600' : 'text-gray-700'} />
+                {validPromotions?.length > 0 && (
+                  <>
+                    <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full px-2 py-0.5 min-w-[20px] text-center font-bold animate-pulse">
+                      {validPromotions.length}
+                    </span>
+                    {/* Pulse animation for active promotions */}
+                    <div className="absolute inset-0 bg-orange-400 rounded-lg opacity-20 animate-ping"></div>
+                  </>
+                )}
+                <div className="hidden md:block text-sm text-gray-600">
+                  <div className={validPromotions?.length > 0 ? 'text-orange-600 font-medium' : ''}>
+                    Offers
+                  </div>
+                  {validPromotions?.length > 0 && (
+                    <div className="text-xs text-orange-500 font-bold">
+                      {validPromotions.length} Available
+                    </div>
+                  )}
+                </div>
               </button>
 
               {/* Cart */}
