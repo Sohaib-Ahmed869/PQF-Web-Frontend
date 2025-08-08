@@ -163,7 +163,7 @@ const PromotionList = ({
     <div className="w-full max-w-full mb-10 px-4 sm:px-6 lg:px-8">
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10">
-        <div className="absolute top-10 right-4 sm:right-20 w-24 h-24 sm:w-32 sm:h-32 bg-red-500/5 rounded-full blur-2xl animate-pulse"></div>
+        <div className="absolute top-10 right-4 sm:right-20 w-24 h-24 sm:w-32 sm:h-32 bg-[#8e191c]/5 rounded-full blur-2xl animate-pulse"></div>
         <div className="absolute bottom-20 left-4 sm:left-10 w-32 h-32 sm:w-40 sm:h-40 bg-blue-500/5 rounded-full blur-3xl animate-pulse delay-700"></div>
       </div>
 
@@ -176,18 +176,18 @@ const PromotionList = ({
 
       {/* Error State */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-6 mb-6">
+        <div className="bg-[#8e191c]/5 border border-[#8e191c]/20 rounded-xl p-6 mb-6">
           <div className="flex items-center gap-3">
-            <div className="bg-red-100 p-2 rounded-lg">
-              <FiAlertCircle className="w-5 h-5 text-red-600" />
+            <div className="bg-[#8e191c]/10 p-2 rounded-lg">
+              <FiAlertCircle className="w-5 h-5 text-[#8e191c]" />
             </div>
             <div>
-              <h3 className="font-semibold text-red-900">Error Loading Promotions</h3>
-              <p className="text-red-700 mt-1">{error}</p>
+              <h3 className="font-semibold text-[#6b1416]">Error Loading Promotions</h3>
+              <p className="text-[#6b1416] mt-1">{error}</p>
             </div>
             <button
               onClick={() => setError(null)}
-              className="ml-auto text-red-600 hover:text-red-800 transition-colors"
+              className="ml-auto text-[#8e191c] hover:text-[#6b1416] transition-colors"
             >
               <FiXCircle className="w-4 h-4" />
             </button>
@@ -199,14 +199,14 @@ const PromotionList = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
         <div className="flex-1 min-w-0">
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <FiGift className="w-8 h-8 text-red-600" />
+            <FiGift className="w-8 h-8 text-[#8e191c]" />
             <span className="truncate">Promotion Management</span>
           </h2>
           <p className="text-gray-600 mt-2 text-sm sm:text-base">Manage and track all store promotions and discounts</p>
         </div>
         <button
           onClick={onAdd}
-          className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-6 py-3 rounded-xl flex items-center gap-2 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300"
+          className="bg-gradient-to-r from-[#8e191c] to-[#6b1416] hover:from-[#6b1416] hover:to-[#4a0f11] text-white px-6 py-3 rounded-xl flex items-center gap-2 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300"
         >
           <FiPlus className="w-5 h-5" />
           Add Promotion
@@ -219,7 +219,7 @@ const PromotionList = ({
           title="Total Promotions"
           value={stats.total}
           icon={FiGift}
-          color="bg-gradient-to-r from-[#a51d20] to-[#c62828]"
+          color="bg-gradient-to-r from-[#8e191c] to-[#6b1416]"
           subtitle="All promotions"
         />
         <PromotionStatsCard
@@ -264,12 +264,12 @@ const PromotionList = ({
       {promotions.length === 0 ? (
         <div className="text-center py-16">
           <div className="bg-white/80 backdrop-blur-sm rounded-3xl border border-gray-200/50 p-12 shadow-xl">
-            <FiGift className="w-20 h-20 text-red-500 mx-auto mb-6" />
+            <FiGift className="w-20 h-20 text-[#8e191c] mx-auto mb-6" />
             <h3 className="text-2xl font-bold text-gray-900 mb-3">No Promotions Found</h3>
             <p className="text-gray-600 mb-8 max-w-md mx-auto">There are no promotions to display at the moment. Create your first promotion to get started!</p>
             <button
               onClick={onAdd}
-              className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-6 py-3 rounded-xl flex items-center gap-2 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 mx-auto"
+              className="bg-gradient-to-r from-[#8e191c] to-[#6b1416] hover:from-[#6b1416] hover:to-[#4a0f11] text-white px-6 py-3 rounded-xl flex items-center gap-2 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 mx-auto"
             >
               <FiPlus className="w-5 h-5" />
               Create First Promotion

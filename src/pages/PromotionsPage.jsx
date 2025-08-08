@@ -361,7 +361,7 @@ const PromotionsPage = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#8e191c] mx-auto mb-4"></div>
           <p className="text-gray-600">Loading promotions...</p>
         </div>
       </div>
@@ -372,8 +372,8 @@ const PromotionsPage = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <p className="text-red-600">{error}</p>
+          <AlertCircle className="w-12 h-12 text-[#8e191c] mx-auto mb-4" />
+          <p className="text-[#8e191c]">{error}</p>
         </div>
       </div>
     );
@@ -402,7 +402,7 @@ const PromotionsPage = () => {
               onClick={() => setActiveTab('all')}
               className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === 'all'
-                  ? 'border-red-500 text-red-600'
+                  ? 'border-[#8e191c] text-[#8e191c]'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
@@ -456,7 +456,7 @@ const PromotionsPage = () => {
             {activeTab === 'valid' && !hasAppliedPromo && (
               <button
                 onClick={() => setActiveTab('all')}
-                className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 transition-colors"
+                className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#8e191c] hover:bg-[#8e191c]/90 transition-colors"
               >
                 View All Promotions
                 <ArrowRight className="w-4 h-4 ml-2" />

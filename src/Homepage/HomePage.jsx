@@ -1,7 +1,9 @@
+import React from 'react';
 import PromotionalBanners from './components/BannerPage';
 import Category from './components/Category';
 import FeatureProduct from './components/FeatureProduct';
 import Footer from './components/Footer';
+
 const HomePage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-gray-100">

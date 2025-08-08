@@ -440,7 +440,7 @@ const AddPromotion = ({ onBack, onSuccess }) => {
               placeholder="Search products..."
               value={searchProductTerm}
               onChange={handleProductSearchChange}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#8e191c] focus:border-transparent"
             />
           </div>
         </div>
@@ -448,7 +448,7 @@ const AddPromotion = ({ onBack, onSuccess }) => {
         <div className="overflow-y-auto max-h-96">
           {loadingProducts ? (
             <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#8e191c]"></div>
             </div>
           ) : filteredProducts.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
@@ -542,7 +542,7 @@ const AddPromotion = ({ onBack, onSuccess }) => {
               placeholder="Search categories..."
               value={searchCategoryTerm}
               onChange={handleCategorySearchChange}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#8e191c] focus:border-transparent"
             />
           </div>
         </div>
@@ -550,7 +550,7 @@ const AddPromotion = ({ onBack, onSuccess }) => {
         <div className="overflow-y-auto max-h-96">
           {loadingCategories ? (
             <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#8e191c]"></div>
             </div>
           ) : filteredCategories.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
@@ -793,7 +793,7 @@ const AddPromotion = ({ onBack, onSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-pink-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-[#8e191c]/5 via-white to-pink-50 p-6">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
@@ -810,9 +810,9 @@ const AddPromotion = ({ onBack, onSuccess }) => {
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3">
-            <FiAlertCircle className="w-5 h-5 text-red-600" />
-            <span className="text-red-800">{error}</span>
+          <div className="mb-6 p-4 bg-[#8e191c]/5 border border-[#8e191c]/20 rounded-2xl flex items-center gap-3">
+            <FiAlertCircle className="w-5 h-5 text-[#8e191c]" />
+            <span className="text-[#6b1416]">{error}</span>
           </div>
         )}
 
@@ -820,8 +820,8 @@ const AddPromotion = ({ onBack, onSuccess }) => {
           {/* Basic Information */}
           <div className="bg-white/80 backdrop-blur-sm rounded-3xl border border-gray-200/50 p-8 shadow-xl">
             <div className="flex items-center gap-3 mb-6">
-              <div className="p-3 bg-red-100 rounded-2xl">
-                <FiTag className="w-6 h-6 text-red-600" />
+              <div className="p-3 bg-[#8e191c]/10 rounded-2xl">
+                <FiTag className="w-6 h-6 text-[#8e191c]" />
               </div>
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Basic Information</h2>
@@ -837,7 +837,7 @@ const AddPromotion = ({ onBack, onSuccess }) => {
                   name="name"
                   value={formData.name}
                   onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300"
+                  className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-[#8e191c] focus:border-transparent transition-all duration-300"
                   placeholder="Enter promotion name..."
                   required
                 />
@@ -850,7 +850,7 @@ const AddPromotion = ({ onBack, onSuccess }) => {
                     name="code"
                     value={formData.code}
                     onChange={handleInputChange}
-                    className="flex-1 border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300 bg-gray-50"
+                    className="flex-1 border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-[#8e191c] focus:border-transparent transition-all duration-300 bg-gray-50"
                     placeholder="Auto-generated based on promotion type"
                     readOnly
                   />
@@ -877,7 +877,7 @@ const AddPromotion = ({ onBack, onSuccess }) => {
                 value={formData.description}
                 onChange={handleInputChange}
                 rows="3"
-                className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300"
+                className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-[#8e191c] focus:border-transparent transition-all duration-300"
                 placeholder="Describe your promotion..."
               />
             </div>
@@ -1017,7 +1017,7 @@ const AddPromotion = ({ onBack, onSuccess }) => {
                           <button
                             type="button"
                             onClick={() => handleCategoryRemove(category._id)}
-                            className="p-1 hover:bg-red-100 rounded-full text-red-600"
+                            className="p-1 hover:bg-[#8e191c]/10 rounded-full text-[#8e191c]"
                           >
                             <FiX className="w-4 h-4" />
                           </button>
@@ -1079,7 +1079,7 @@ const AddPromotion = ({ onBack, onSuccess }) => {
                           <button
                             type="button"
                             onClick={() => handleProductRemove(productId)}
-                            className="p-1 hover:bg-red-100 rounded-full text-red-600"
+                            className="p-1 hover:bg-[#8e191c]/10 rounded-full text-[#8e191c]"
                           >
                             <FiX className="w-4 h-4" />
                           </button>
@@ -1127,7 +1127,7 @@ const AddPromotion = ({ onBack, onSuccess }) => {
                   name="startDate"
                   value={formData.startDate}
                   onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300"
+                  className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-[#8e191c] focus:border-transparent transition-all duration-300"
                   required
                 />
               </div>
@@ -1138,7 +1138,7 @@ const AddPromotion = ({ onBack, onSuccess }) => {
                   name="endDate"
                   value={formData.endDate}
                   onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300"
+                  className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-[#8e191c] focus:border-transparent transition-all duration-300"
                   required
                 />
               </div>
@@ -1153,7 +1153,7 @@ const AddPromotion = ({ onBack, onSuccess }) => {
                   name="maxUsage"
                   value={formData.maxUsage}
                   onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300"
+                  className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-[#8e191c] focus:border-transparent transition-all duration-300"
                 />
               </div>
               <div>
@@ -1164,7 +1164,7 @@ const AddPromotion = ({ onBack, onSuccess }) => {
                   name="maxUsagePerUser"
                   value={formData.maxUsagePerUser}
                   onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300"
+                  className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-[#8e191c] focus:border-transparent transition-all duration-300"
                 />
               </div>
               <div>
@@ -1175,7 +1175,7 @@ const AddPromotion = ({ onBack, onSuccess }) => {
                   name="priority"
                   value={formData.priority}
                   onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300"
+                  className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-[#8e191c] focus:border-transparent transition-all duration-300"
                 />
               </div>
             </div>
@@ -1219,7 +1219,7 @@ const AddPromotion = ({ onBack, onSuccess }) => {
             <button
               type="submit"
               disabled={loading}
-              className="px-8 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-2xl font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-8 py-3 bg-gradient-to-r from-[#8e191c] to-[#6b1416] hover:from-[#6b1416] hover:to-[#4a0f11] text-white rounded-2xl font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {loading ? (
                 <>

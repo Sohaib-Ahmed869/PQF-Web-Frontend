@@ -42,7 +42,7 @@ const DeletePromotion = ({ promotion, onBack, onSuccess }) => {
       </div>
 
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+        <div className="bg-[#8e191c]/10 border border-[#8e191c]/30 text-[#8e191c] px-4 py-3 rounded mb-4">
           {error}
         </div>
       )}
@@ -95,7 +95,7 @@ const DeletePromotion = ({ promotion, onBack, onSuccess }) => {
             <button
               onClick={handleDelete}
               disabled={loading}
-              className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 disabled:opacity-50"
+              className="px-4 py-2 bg-[#8e191c] text-white rounded-md hover:bg-[#6b1416] disabled:opacity-50"
             >
               {loading ? 'Deleting...' : 'Delete Promotion'}
             </button>

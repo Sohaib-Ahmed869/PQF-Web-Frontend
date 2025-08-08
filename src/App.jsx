@@ -8,7 +8,6 @@ import PremierLegalPages from './UserRegistration/TermsAndPrivacy';
 import PremierNavbar from './Navigation/Navbar';
 import HomePage from './Homepage/HomePage';
 import Products from './ProductsPage/Products';
-import GoogleSuccess from './UserRegistration/GoogleSuccess';
 import BannerPage from './AdminPages/BannerManagement/BannerPage';
 import CategoryPage from './AdminPages/CategoryManagement/CategoryPage';
 import ProductPage from './AdminPages/ProductManagement/ProductPage';
@@ -77,7 +76,6 @@ function App() {
                 <Route path="/privacy" element={<PremierLegalPages />} />
                 <Route path="/home" element={<HomePage />} />
                 <Route path="/products/*" element={<Products />} />
-                <Route path="/google-success" element={<GoogleSuccess />} />
                 <Route path="/admin/banners" element={<BannerPage />} />
                 <Route path="/superAdmin/stores" element={<SuperAdminStorePage />} />
                 <Route path="/superAdmin/banners" element={<SuperAdminBannerPage />} />

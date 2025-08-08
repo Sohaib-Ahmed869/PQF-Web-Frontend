@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, Mail, Lock, Check, AlertCircle } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import userService from '../services/userService';
 import PQFLogo from '../assets/PQF-22.png';
 
 // Move InputField component outside to prevent re-creation
@@ -21,30 +20,43 @@ const InputField = React.memo(({ type, name, label, icon: Icon, value, onChange,
           onBlur={() => setIsFocused(false)}
           className={`w-full px-4 py-4 pl-12 bg-gray-50 border-2 rounded-xl transition-all duration-300 outline-none ${
             isFocused || value 
-              ? 'border-red-500 bg-white shadow-lg shadow-red-500/10' 
+              ? 'bg-white shadow-lg' 
               : 'border-gray-200 hover:border-gray-300'
           }`}
+          style={{
+            borderColor: isFocused || value ? '#8e191c' : undefined,
+            boxShadow: isFocused || value ? '0 10px 15px -3px rgba(142, 25, 28, 0.1)' : undefined
+          }}
           placeholder=" "
           required
         />
         
         <label className={`absolute left-12 transition-all duration-300 pointer-events-none ${
           isFocused || value
-            ? '-top-2 text-xs text-red-500 bg-white px-2 ml-1'
+            ? '-top-2 text-xs bg-white px-2 ml-1'
             : 'top-4 text-gray-500'
-        }`}>
+        }`}
+        style={{
+          color: isFocused || value ? '#8e191c' : undefined
+        }}>
           {label}
         </label>
         
         <Icon className={`absolute left-4 top-4 w-5 h-5 transition-colors duration-300 ${
-          isFocused || value ? 'text-red-500' : 'text-gray-400'
-        }`} />
+          isFocused || value ? 'text-gray-400' : 'text-gray-400'
+        }`} 
+        style={{
+          color: isFocused || value ? '#8e191c' : undefined
+        }} />
         
         {name === 'password' && (
           <button
             type="button"
             onClick={onTogglePassword}
-            className="absolute right-4 top-4 text-gray-400 hover:text-red-500 transition-colors"
+            className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 transition-colors"
+            style={{
+              color: showPassword ? '#8e191c' : undefined
+            }}
           >
             {showPassword ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
           </button>
@@ -62,7 +74,6 @@ const PremierLogin = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [particles, setParticles] = useState([]);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -119,98 +130,94 @@ const PremierLogin = () => {
     setShowPassword(prev => !prev);
   }, []);
 
-
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  // Clear previous messages
-  setError('');
-  setSuccess('');
-  
-  // Validate form
-  if (!formData.email || !formData.password) {
-    setError('Please fill in all required fields');
-    return;
-  }
-  
-  // Validate email format
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(formData.email)) {
-    setError('Please enter a valid email address');
-    return;
-  }
-  
-  setIsLoading(true);
-  
-  try {
-    // Call the login API using AuthContext
-    const response = await login({
-      email: formData.email,
-      password: formData.password
-    });
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     
-    console.log("Full login response:", response);
+    // Clear previous messages
+    setError('');
+    setSuccess('');
     
-    setSuccess('Login successful!');
-    
-    // Get user data from the response (now correctly accessing nested data)
-    const loggedInUser = response?.data?.user;
-    const token = response?.data?.token;
-    console.log("Logged in user:", loggedInUser);
-    console.log("Token:", token); // Log the token
-    
-    if (!loggedInUser) {
-      console.error("No user data in response");
-      setError('Login failed: No user data received');
+    // Validate form
+    if (!formData.email || !formData.password) {
+      setError('Please fill in all required fields');
       return;
     }
     
-    const role = loggedInUser.role;
-    console.log("User role:", role);
-
-    // Redirect based on role after a short delay
-    setTimeout(() => {
-      // Check for admin roles (including superAdmin)
-      if (role === 'superAdmin') {
-        console.log("Redirecting to super admin panel for role:", role);
-        navigate('/superAdmin/stores');
-      } else if (role === 'admin') {
-        console.log("Redirecting to admin panel for role:", role);
-        navigate('/admin/categories');
-      } else if (role === 'customer') {
-        console.log("Redirecting to home for customer");
-        navigate('/');
-      } else {
-        console.log("Unknown role, redirecting to home:", role);
-        navigate('/');
-      }
-    }, 1500); // Reduced timeout for better UX
-    
-  } catch (error) {
-    console.error('Login error:', error);
-    setError(error.message || 'Login failed. Please check your credentials and try again.');
-  } finally {
-    setIsLoading(false);
-  }
-};
-  // Handle Google OAuth redirect
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const token = params.get('token');
-    const errorMsg = params.get('error');
-    if (token) {
-      localStorage.setItem('token', token);
-      setSuccess('Logged in with Google! Redirecting...');
-      setTimeout(() => {
-        navigate('/home');
-      }, 1500);
-    } else if (errorMsg) {
-      setError(decodeURIComponent(errorMsg));
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('Please enter a valid email address');
+      return;
     }
-  }, [location.search, navigate]);
+    
+    setIsLoading(true);
+    
+    try {
+      // Call the login API using AuthContext
+      const response = await login({
+        email: formData.email,
+        password: formData.password
+      });
+      
+      console.log("Full login response:", response);
+      
+      setSuccess('Login successful!');
+      
+      // Get user data from the response (now correctly accessing nested data)
+      const loggedInUser = response?.data?.user;
+      const token = response?.data?.token;
+      console.log("Logged in user:", loggedInUser);
+      console.log("Token:", token); // Log the token
+      
+      if (!loggedInUser) {
+        console.error("No user data in response");
+        setError('Login failed: No user data received');
+        return;
+      }
+      
+      const role = loggedInUser.role;
+      console.log("User role:", role);
 
-  const handleGoogleLogin = () => {
-    window.location.href = userService.getGoogleAuthUrl();
+      // Redirect based on role after a short delay
+      setTimeout(() => {
+        // Check for admin roles (including superAdmin)
+        if (role === 'superAdmin') {
+          console.log("Redirecting to super admin panel for role:", role);
+          navigate('/superAdmin/stores');
+        } else if (role === 'admin') {
+          console.log("Redirecting to admin panel for role:", role);
+          navigate('/admin/categories');
+        } else if (role === 'customer') {
+          console.log("Redirecting to home for customer");
+          navigate('/');
+        } else {
+          console.log("Unknown role, redirecting to home:", role);
+          navigate('/');
+        }
+      }, 1500); // Reduced timeout for better UX
+      
+    } catch (error) {
+      console.error('Login error:', error);
+      
+      // Extract the specific error message from the backend response
+      let errorMessage = 'Login failed. Please check your credentials and try again.';
+      
+      if (error.response && error.response.data) {
+        // If the backend returns a specific error message
+        if (error.response.data.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.response.data.error) {
+          errorMessage = error.response.data.error;
+        }
+      } else if (error.message) {
+        // If it's a direct error message
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSignUp = () => {
@@ -282,7 +289,9 @@ const handleSubmit = async (e) => {
       <div className="bg-white/90 backdrop-blur-xl shadow-2xl rounded-3xl overflow-hidden w-full max-w-5xl min-h-[600px] flex flex-col lg:flex-row relative border border-white/50 shadow-blue-500/10">
         
         {/* Enhanced Left Panel */}
-        <div className="flex-1 bg-gradient-to-br from-red-600 via-red-500 to-red-700 p-8 lg:p-12 flex flex-col justify-center items-center text-white relative overflow-hidden">
+        <div className="flex-1 p-8 lg:p-12 flex flex-col justify-center items-center text-white relative overflow-hidden" style={{
+          background: 'linear-gradient(135deg, #8e191c 0%, #a52a2a 50%, #8e191c 100%)'
+        }}>
           {/* Enhanced Animated Background Circle */}
           <div className="absolute inset-0 opacity-20">
             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 border-2 border-white rounded-full animate-spin" style={{ animationDuration: '20s' }} />
@@ -299,12 +308,12 @@ const handleSubmit = async (e) => {
             {/* Enhanced Logo */}
             <img src={PQFLogo} alt="PQF Logo" className="w-28 lg:w-36 h-28 lg:h-36 object-contain mb-6 mx-auto animate-pulse" style={{ filter: 'brightness(0) invert(1)' }} />
             
-            <h1 className="text-3xl lg:text-4xl font-bold mb-3 tracking-wider drop-shadow-lg">PREMIER</h1>
-            <p className="text-lg lg:text-xl opacity-90 mb-6 lg:mb-8 drop-shadow">QUALITY FOODS</p>
+            <h1 className="text-3xl lg:text-4xl font-bold mb-3 tracking-wider drop-shadow-lg text-white">PREMIER</h1>
+            <p className="text-lg lg:text-xl opacity-90 mb-6 lg:mb-8 drop-shadow text-white">QUALITY FOODS</p>
             
-            {/* Enhanced Food Icons */}
+            {/* Enhanced Grocery Icons */}
             <div className="flex justify-center space-x-4 lg:space-x-6 mb-6 lg:mb-8">
-              {['🍕', '🍔', '🍟'].map((emoji, index) => (
+              {['🛒', '🥬', '🥩'].map((emoji, index) => (
                 <div 
                   key={index}
                   className="w-10 lg:w-12 h-10 lg:h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-xl lg:text-2xl animate-bounce shadow-lg border border-white/30"
@@ -315,8 +324,8 @@ const handleSubmit = async (e) => {
               ))}
             </div>
             
-            <p className="text-base lg:text-lg opacity-90 leading-relaxed px-4 drop-shadow">
-              Delivering fresh, quality food experiences with every order
+            <p className="text-base lg:text-lg opacity-90 leading-relaxed px-4 drop-shadow text-white">
+              Join our community and experience the future of culinary excellence
             </p>
           </div>
         </div>
@@ -332,9 +341,12 @@ const handleSubmit = async (e) => {
 
             {/* Error Message */}
             {error && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 animate-fade-in">
-                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                <span className="text-red-700 text-sm font-medium">{error}</span>
+              <div className="mb-6 p-4 border rounded-xl flex items-center gap-3 animate-fade-in" style={{
+                backgroundColor: 'rgba(142, 25, 28, 0.1)',
+                borderColor: 'rgba(142, 25, 28, 0.2)'
+              }}>
+                <AlertCircle className="w-5 h-5 flex-shrink-0" style={{ color: '#8e191c' }} />
+                <span className="text-sm font-medium" style={{ color: '#8e191c' }}>{error}</span>
               </div>
             )}
 
@@ -385,9 +397,13 @@ const handleSubmit = async (e) => {
                       />
                       <div className={`w-5 h-5 border-2 rounded transition-all duration-300 ${
                         formData.rememberMe 
-                          ? 'bg-red-500 border-red-500' 
-                          : 'border-gray-300 group-hover:border-red-500'
-                      }`}>
+                          ? 'border-gray-300' 
+                          : 'border-gray-300 group-hover:border-gray-400'
+                      }`}
+                      style={{
+                        backgroundColor: formData.rememberMe ? '#8e191c' : undefined,
+                        borderColor: formData.rememberMe ? '#8e191c' : undefined
+                      }}>
                         {formData.rememberMe && (
                           <Check className="w-3 h-3 text-white absolute top-0.5 left-0.5" />
                         )}
@@ -398,7 +414,11 @@ const handleSubmit = async (e) => {
                     </span>
                   </label>
                   
-                  <button type="button" className="text-sm lg:text-base text-red-500 hover:text-red-600 transition-colors font-medium" onClick={() => navigate('/forgot-password')}>
+                  <button type="button" className="text-sm lg:text-base transition-colors font-medium" 
+                    style={{ color: '#8e191c' }}
+                    onMouseEnter={(e) => e.target.style.color = '#a52a2a'}
+                    onMouseLeave={(e) => e.target.style.color = '#8e191c'}
+                    onClick={() => navigate('/forgot-password')}>
                     Forgot Password?
                   </button>
                 </div>
@@ -407,7 +427,11 @@ const handleSubmit = async (e) => {
                 <button
                   onClick={handleSubmit}
                   disabled={isLoading}
-                  className="w-full bg-gradient-to-r from-red-600 to-red-700 text-white py-4 rounded-2xl font-semibold text-base transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl hover:shadow-red-500/25 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none relative overflow-hidden group"
+                  className="w-full text-white py-4 rounded-2xl font-semibold text-base transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none relative overflow-hidden group"
+                  style={{
+                    background: 'linear-gradient(135deg, #8e191c 0%, #a52a2a 100%)',
+                    boxShadow: '0 10px 15px -3px rgba(142, 25, 28, 0.25)'
+                  }}
                 >
                   <span className="relative z-10 flex items-center justify-center">
                     {isLoading ? (
@@ -419,48 +443,12 @@ const handleSubmit = async (e) => {
                       'Sign In'
                     )}
                   </span>
-                  <div className="absolute inset-0 bg-gradient-to-r from-red-700 to-red-800 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
+                  <div className="absolute inset-0 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" 
+                    style={{
+                      background: 'linear-gradient(135deg, #a52a2a 0%, #8e191c 100%)'
+                    }} />
                 </button>
               </div>
-
-              {/* Divider */}
-              <div className="flex items-center my-8">
-                <div className="flex-1 border-t border-gray-300/50"></div>
-                <div className="px-6 py-2 bg-gray-100/50 backdrop-blur-sm rounded-full border border-gray-200/50">
-                  <span className="text-gray-500 text-sm font-medium">OR</span>
-                </div>
-                <div className="flex-1 border-t border-gray-300/50"></div>
-              </div>
-
-              {/* Google Login Button */}
-              <button
-                type="button"
-                onClick={handleGoogleLogin}
-                disabled={isGoogleLoading}
-                className="w-full bg-white/90 backdrop-blur-sm border-2 border-gray-200/50 text-gray-700 py-4 rounded-2xl font-semibold text-base transition-all duration-500 transform hover:scale-[1.02] hover:shadow-2xl hover:border-blue-300 hover:bg-white disabled:opacity-70 disabled:cursor-not-allowed relative overflow-hidden group"
-              >
-                <span className="relative z-10 flex items-center justify-center">
-                  {isGoogleLoading ? (
-                    <>
-                      <div className="w-6 h-6 border-3 border-gray-400 border-t-transparent rounded-full animate-spin mr-3" />
-                      <span className="animate-pulse">Connecting to Google...</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-6 h-6 mr-3" viewBox="0 0 24 24">
-                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                      </svg>
-                      Continue with Google
-                    </>
-                  )}
-                </span>
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-50 to-purple-50 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
-                {/* Scanning effect */}
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              </button>
             </div>
 
             {/* Signup Link */}
@@ -469,7 +457,10 @@ const handleSubmit = async (e) => {
                 Don't have an account?{' '}
                 <button
                   type="button"
-                  className="text-red-500 hover:text-red-600 font-bold transition-colors"
+                  className="font-bold transition-colors"
+                  style={{ color: '#8e191c' }}
+                  onMouseEnter={(e) => e.target.style.color = '#a52a2a'}
+                  onMouseLeave={(e) => e.target.style.color = '#8e191c'}
                   onClick={handleSignUp}
                 >
                   Sign up here

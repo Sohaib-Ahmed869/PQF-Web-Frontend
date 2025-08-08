@@ -1,5 +1,4 @@
 import api from './api';
-import { GOOGLE_AUTH_URL } from './api';
 
 class UserService {
   async register(userData) {
@@ -143,10 +142,6 @@ class UserService {
         message: error.message || 'Failed to get wishlist'
       };
     }
-  }
-
-  getGoogleAuthUrl() {
-    return GOOGLE_AUTH_URL;
   }
 }
 

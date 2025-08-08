@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, ShoppingCart, MapPin, ChevronDown, Menu, Truck, MousePointer, Package, Globe, Star, Heart, Clock, Sparkles, Plus, X, Zap, Loader2, ArrowRight, Grid3X3, Layers, Store, Tag } from 'lucide-react';
+import { User, ShoppingCart, MapPin, ChevronDown, Menu, Truck, MousePointer, Package, Globe, Star, Heart, Clock, Sparkles, Plus, X, Zap, Loader2, ArrowRight, Grid3X3, Layers, Store, Tag, Search } from 'lucide-react';
 
 import webService from '../services/Website/WebService';
 import logo from "../assets/PQF-22.png"
@@ -45,6 +45,13 @@ const FuturisticNavbar = () => {
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [categoryError, setCategoryError] = useState(null);
 
+  // Search state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestionLoading, setSuggestionLoading] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [searchFocused, setSearchFocused] = useState(false);
 
 
   // Replace local wishlistCount state with global context
@@ -143,6 +150,15 @@ const FuturisticNavbar = () => {
       ) {
         setActiveDropdown(null);
         setExpandedCategory(null);
+      }
+      
+      // Clear search when clicking outside search area
+      if (!event.target.closest('[data-search-container]')) {
+        setSearchTerm('');
+        setShowSuggestions(false);
+        setSearchFocused(false);
+        setSuggestions([]);
+        setHighlightedIndex(-1);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -244,16 +260,113 @@ const FuturisticNavbar = () => {
     return 'Address not available';
   };
 
+  // Clear search function
+  const clearSearch = () => {
+    setSearchTerm('');
+    setShowSuggestions(false);
+    setSearchFocused(false);
+    setSuggestions([]);
+    setHighlightedIndex(-1);
+  };
+
   // Handle category click
   const handleCategoryClick = (category) => {
     // Always use ItemsGroupCode (number) for filtering
     const categoryCode = String(category.ItemsGroupCode);
+    clearSearch(); // Clear search when navigating to categories
     navigate(`/products?category=${encodeURIComponent(categoryCode)}`);
     setExpandedCategory(null);
     setActiveDropdown(null);
     setIsMenuOpen(false);
   };
 
+  // Fetch product name suggestions as user types with debouncing
+  useEffect(() => {
+    let active = true;
+    let timeoutId;
+    
+    if (searchTerm && searchFocused && searchTerm.length >= 2) {
+      // Debounce the API call to prevent excessive requests
+      timeoutId = setTimeout(() => {
+        setSuggestionLoading(true);
+        webService.suggestProductNames(searchTerm).then(res => {
+          if (active) {
+            const suggestions = res.data?.data || [];
+            setSuggestions(suggestions);
+            setShowSuggestions(suggestions.length > 0);
+          }
+        }).catch((err) => {
+          if (active) {
+            setSuggestions([]);
+            setShowSuggestions(false);
+          }
+        }).finally(() => {
+          if (active) setSuggestionLoading(false);
+        });
+      }, 300); // 300ms debounce delay
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+    setHighlightedIndex(-1);
+    
+    return () => { 
+      active = false; 
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [searchTerm, searchFocused]);
+
+  // Handle search input change
+  const handleSearchInputChange = (e) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+    setShowSuggestions(true);
+  };
+
+  // Handle search submit
+  const handleSearchSubmit = () => {
+    setShowSuggestions(false);
+    if (searchTerm.trim()) {
+      navigate(`/products?search=${encodeURIComponent(searchTerm.trim())}`);
+    }
+  };
+
+  // Handle suggestion click
+  const handleSuggestionClick = (name) => {
+    setSearchTerm(name);
+    setShowSuggestions(false);
+    
+    // Try to find the product by name in the current categories/products
+    const foundProduct = categories.flatMap(cat => cat.items || []).find(item => 
+      (item.ItemName || item.name || '').toLowerCase().includes(name.toLowerCase())
+    );
+    
+    if (foundProduct) {
+      // Navigate to individual product page
+      navigate(`/product/${foundProduct._id || foundProduct.id}`);
+    } else {
+      // Fallback: navigate to products page with search
+      navigate(`/products?search=${encodeURIComponent(name)}`);
+    }
+  };
+
+  // Handle keyboard navigation
+  const handleKeyDown = (e) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex(prev => (prev + 1) % suggestions.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
+    } else if (e.key === 'Enter') {
+      if (highlightedIndex >= 0 && highlightedIndex < suggestions.length) {
+        handleSuggestionClick(suggestions[highlightedIndex]);
+      } else {
+        handleSearchSubmit();
+      }
+    }
+  };
 
 
   return (
@@ -292,7 +405,7 @@ const FuturisticNavbar = () => {
         <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             {/* Logo */}
-            <div className="flex items-center group cursor-pointer flex-shrink-0" onClick={() => navigate('/') }>
+            <div className="flex items-center group cursor-pointer flex-shrink-0" onClick={() => { clearSearch(); navigate('/'); }}>
                 <img src={logo} alt="Logo" className="w- h-16 object-contain" />
               <div className="ml-3">
                 <div className="text-lg font-bold tracking-wider text-gray-800">PREMIER</div>
@@ -331,13 +444,13 @@ const FuturisticNavbar = () => {
                     <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-50 animate-fade-in">
                       <button
                         className="w-full text-left px-4 py-2 hover:bg-gray-100 text-gray-800"
-                        onMouseDown={() => { setUserDropdownOpen(false); navigate('/user/addresses'); }}
+                        onMouseDown={() => { setUserDropdownOpen(false); clearSearch(); navigate('/user/addresses'); }}
                       >
                         Dashboard
                       </button>
                       <button
                         className="w-full text-left px-4 py-2 hover:bg-gray-100 text-gray-800"
-                        onMouseDown={() => { setUserDropdownOpen(false); logout(); }}
+                        onMouseDown={() => { setUserDropdownOpen(false); clearSearch(); logout(); }}
                       >
                         Logout
                       </button>
@@ -359,13 +472,13 @@ const FuturisticNavbar = () => {
                     <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-50 animate-fade-in">
                       <button
                         className="w-full text-left px-4 py-2 hover:bg-gray-100 text-gray-800"
-                        onMouseDown={() => { setAuthDropdownOpen(false); navigate('/login'); }}
+                        onMouseDown={() => { setAuthDropdownOpen(false); clearSearch(); navigate('/login'); }}
                       >
                         Login
                       </button>
                       <button
                         className="w-full text-left px-4 py-2 hover:bg-gray-100 text-gray-800"
-                        onMouseDown={() => { setAuthDropdownOpen(false); navigate('/register'); }}
+                        onMouseDown={() => { setAuthDropdownOpen(false); clearSearch(); navigate('/register'); }}
                       >
                         Register
                       </button>
@@ -377,7 +490,7 @@ const FuturisticNavbar = () => {
               {/* Location */}
               <button
                 className="flex items-center space-x-2 bg-gray-50 rounded-lg px-3 py-2 hover:bg-gray-100 transition cursor-pointer focus:outline-none"
-                onClick={handleChangeStore}
+                onClick={() => { clearSearch(); handleChangeStore(); }}
                 aria-label="Change delivery or pickup location"
                 type="button"
               >
@@ -396,7 +509,7 @@ const FuturisticNavbar = () => {
               {/* Wishlist Icon */}
               <button
                 className="relative flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg transition-all"
-                onClick={() => navigate('/wishlist')}
+                onClick={() => { clearSearch(); navigate('/wishlist'); }}
                 aria-label="Wishlist"
               >
                 <Heart size={28} className={wishlistCount > 0 ? 'text-[#8e191c] text-[#8e191c]' : 'text-gray-700'} />
@@ -410,7 +523,7 @@ const FuturisticNavbar = () => {
               {/* Promotions */}
               <button
                 className="relative flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg transition-all group"
-                onClick={() => navigate('/promotions')}
+                onClick={() => { clearSearch(); navigate('/promotions'); }}
                 aria-label="Promotions"
                 title="View Available Promotions"
               >
@@ -439,7 +552,7 @@ const FuturisticNavbar = () => {
               {/* Cart */}
               <button
                 className="relative flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg transition-all"
-                onClick={() => navigate('/cart')}
+                onClick={() => { clearSearch(); navigate('/cart'); }}
                 aria-label="Cart"
               >
                 <ShoppingCart size={28} className="text-gray-700" />
@@ -556,10 +669,51 @@ const FuturisticNavbar = () => {
               )}
             </div>
 
-            {/* Express Delivery Badge */}
-            <div className="flex items-center space-x-2 px-3 py-1 bg-white bg-opacity-20 rounded-lg text-white text-sm">
-              <Truck className="w-4 h-4" />
-              <span>Express: 15min</span>
+            {/* Search Bar */}
+            <div className="ml-6 max-w-2xl" data-search-container>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search products..."
+                  value={searchTerm}
+                  onChange={handleSearchInputChange}
+                  onKeyDown={handleKeyDown}
+                  onFocus={() => { setSearchFocused(true); setShowSuggestions(true); }}
+                  onBlur={() => { setSearchFocused(false); setTimeout(() => setShowSuggestions(false), 200); }}
+                  className="w-full px-3 py-2 rounded-xl border-2 border-white bg-white text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white shadow-md text-sm"
+                />
+                <button
+                  onClick={handleSearchSubmit}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#8e191c] hover:text-[#8e191c]"
+                >
+                  <Search className="w-4 h-4" />
+                </button>
+                
+                {/* Suggestions Dropdown */}
+                {showSuggestions && searchFocused && (
+                  <div className="absolute left-0 right-0 top-full bg-white border border-gray-200 rounded-lg shadow-lg z-[1200] mt-1 max-h-60 overflow-y-auto transition-all duration-200 ease-in-out">
+                    {suggestionLoading ? (
+                      <div className="p-3 text-center text-gray-400 text-sm flex items-center justify-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" /> Loading...
+                      </div>
+                    ) : suggestions.length === 0 && searchTerm ? (
+                      <div className="p-3 text-center text-gray-400 text-sm">No results found</div>
+                    ) : (
+                      suggestions.map((name, idx) => (
+                        <div
+                          key={idx}
+                          className={`px-4 py-2 flex items-center gap-2 cursor-pointer text-gray-800 text-sm transition-all duration-150 ${highlightedIndex === idx ? 'bg-[#8e191c] text-white font-semibold' : 'hover:bg-[#8e191c]/10'}`}
+                          onMouseDown={() => handleSuggestionClick(name)}
+                          onMouseEnter={() => setHighlightedIndex(idx)}
+                        >
+                          <Search className={`w-4 h-4 ${highlightedIndex === idx ? 'text-white' : 'text-[#8e191c]'}`} />
+                          {name}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -575,10 +729,6 @@ const FuturisticNavbar = () => {
               <div className="flex items-center space-x-2">
                 <Grid3X3 className="w-5 h-5 text-white" />
                 <span className="text-white font-semibold text-sm">All Categories</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Truck className="w-4 h-4 text-white" />
-                <span className="text-white text-xs font-medium">Express delivery</span>
               </div>
             </div>
 

@@ -94,7 +94,8 @@ const UserManagementPage = () => {
   // Helper function to check if user has any valid documents
   const hasValidDocuments = (user) => {
     return (user.documents?.tradeLicense && isValidDocument(user.documents.tradeLicense)) ||
-           (user.documents?.idDocument && isValidDocument(user.documents.idDocument));
+           (user.documents?.idDocument && isValidDocument(user.documents.idDocument)) ||
+           (user.documents?.bankStatement && isValidDocument(user.documents.bankStatement));
   };
 
   const getStatusBadge = (status) => {
@@ -279,27 +280,50 @@ const UserManagementPage = () => {
                         {/* Documents */}
                         <div className="mb-3 sm:mb-4">
                           <h4 className="text-xs sm:text-sm font-medium text-gray-700 mb-2">Documents:</h4>
-                          <div className="flex items-center gap-2">
-                            {user.documents?.tradeLicense || user.documents?.idDocument ? (
-                              <>
-                                {user.documents?.tradeLicense && (
-                                  <div className="flex items-center gap-1">
-                                    <FileText className="w-4 h-4 text-blue-500" />
-                                    {user.documents.tradeLicense.verified && (
-                                      <Check className="w-4 h-4 text-green-500" />
-                                    )}
-                                  </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {user.documents?.tradeLicense && isValidDocument(user.documents.tradeLicense) ? (
+                              <div className="flex items-center gap-1 bg-blue-50 px-2 py-1 rounded-full">
+                                <FileText className="w-3 h-3 text-blue-500" />
+                                <span className="text-xs text-blue-700 font-medium">Trade License</span>
+                                {user.documents.tradeLicense.verified && (
+                                  <Check className="w-3 h-3 text-green-500" />
                                 )}
-                                {user.documents?.idDocument && (
-                                  <div className="flex items-center gap-1">
-                                    <FileText className="w-4 h-4 text-blue-500" />
-                                    {user.documents.idDocument.verified && (
-                                      <Check className="w-4 h-4 text-green-500" />
-                                    )}
-                                  </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1 bg-red-50 px-2 py-1 rounded-full">
+                                <AlertCircle className="w-3 h-3 text-red-500" />
+                                <span className="text-xs text-red-700 font-medium">Trade License Missing</span>
+                              </div>
+                            )}
+                            
+                            {user.documents?.idDocument && isValidDocument(user.documents.idDocument) ? (
+                              <div className="flex items-center gap-1 bg-blue-50 px-2 py-1 rounded-full">
+                                <FileText className="w-3 h-3 text-blue-500" />
+                                <span className="text-xs text-blue-700 font-medium">ID Document</span>
+                                {user.documents.idDocument.verified && (
+                                  <Check className="w-3 h-3 text-green-500" />
                                 )}
-                              </>
-                            ) : null}
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1 bg-red-50 px-2 py-1 rounded-full">
+                                <AlertCircle className="w-3 h-3 text-red-500" />
+                                <span className="text-xs text-red-700 font-medium">ID Document Missing</span>
+                              </div>
+                            )}
+                            
+                            {user.documents?.bankStatement && isValidDocument(user.documents.bankStatement) ? (
+                              <div className="flex items-center gap-1 bg-green-50 px-2 py-1 rounded-full">
+                                <FileText className="w-3 h-3 text-green-500" />
+                                <span className="text-xs text-green-700 font-medium">Bank Statement</span>
+                                {user.documents.bankStatement.verified && (
+                                  <Check className="w-3 h-3 text-green-500" />
+                                )}
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded-full">
+                                <span className="text-xs text-gray-500 font-medium">Bank Statement (Optional)</span>
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -368,27 +392,50 @@ const UserManagementPage = () => {
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center gap-2">
-                                {user.documents?.tradeLicense || user.documents?.idDocument ? (
-                                  <>
-                                    {user.documents?.tradeLicense && (
-                                      <div className="flex items-center gap-1">
-                                        <FileText className="w-4 h-4 text-blue-500" />
-                                        {user.documents.tradeLicense.verified && (
-                                          <Check className="w-4 h-4 text-green-500" />
-                                        )}
-                                      </div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                {user.documents?.tradeLicense && isValidDocument(user.documents.tradeLicense) ? (
+                                  <div className="flex items-center gap-1 bg-blue-50 px-2 py-1 rounded-full">
+                                    <FileText className="w-3 h-3 text-blue-500" />
+                                    <span className="text-xs text-blue-700 font-medium">Trade License</span>
+                                    {user.documents.tradeLicense.verified && (
+                                      <Check className="w-3 h-3 text-green-500" />
                                     )}
-                                    {user.documents?.idDocument && (
-                                      <div className="flex items-center gap-1">
-                                        <FileText className="w-4 h-4 text-blue-500" />
-                                        {user.documents.idDocument.verified && (
-                                          <Check className="w-4 h-4 text-green-500" />
-                                        )}
-                                      </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1 bg-red-50 px-2 py-1 rounded-full">
+                                    <AlertCircle className="w-3 h-3 text-red-500" />
+                                    <span className="text-xs text-red-700 font-medium">Trade License Missing</span>
+                                  </div>
+                                )}
+                                
+                                {user.documents?.idDocument && isValidDocument(user.documents.idDocument) ? (
+                                  <div className="flex items-center gap-1 bg-blue-50 px-2 py-1 rounded-full">
+                                    <FileText className="w-3 h-3 text-blue-500" />
+                                    <span className="text-xs text-blue-700 font-medium">ID Document</span>
+                                    {user.documents.idDocument.verified && (
+                                      <Check className="w-3 h-3 text-green-500" />
                                     )}
-                                  </>
-                                ) : null}
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1 bg-red-50 px-2 py-1 rounded-full">
+                                    <AlertCircle className="w-3 h-3 text-red-500" />
+                                    <span className="text-xs text-red-700 font-medium">ID Document Missing</span>
+                                  </div>
+                                )}
+                                
+                                {user.documents?.bankStatement && isValidDocument(user.documents.bankStatement) ? (
+                                  <div className="flex items-center gap-1 bg-green-50 px-2 py-1 rounded-full">
+                                    <FileText className="w-3 h-3 text-green-500" />
+                                    <span className="text-xs text-green-700 font-medium">Bank Statement</span>
+                                    {user.documents.bankStatement.verified && (
+                                      <Check className="w-3 h-3 text-green-500" />
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded-full">
+                                    <span className="text-xs text-gray-500 font-medium">Bank Statement (Optional)</span>
+                                  </div>
+                                )}
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">

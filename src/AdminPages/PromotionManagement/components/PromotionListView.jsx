@@ -39,7 +39,7 @@ const PromotionListView = ({ promotions, onEdit, onView, onDelete, formatDate, f
     
     if (now > endDate) {
       return {
-        color: 'bg-red-100 text-red-700 border-red-300',
+        color: 'bg-[#8e191c]/10 text-[#8e191c] border-[#8e191c]/30',
         icon: FiAlertCircle,
         label: 'Expired'
       };
@@ -197,7 +197,7 @@ const PromotionListView = ({ promotions, onEdit, onView, onDelete, formatDate, f
                       </button>
                       <button
                         onClick={() => onDelete(promotion)}
-                        className="flex items-center gap-1 text-red-600 hover:text-red-800 transition-colors"
+                        className="flex items-center gap-1 text-[#8e191c] hover:text-[#6b1416] transition-colors"
                       >
                         <FiTrash2 className="w-4 h-4" />
                         <span>Delete</span>

@@ -111,5 +111,4 @@ api.interceptors.response.use(
   }
 );
 
-export const GOOGLE_AUTH_URL = baseURL + '/auth/google';
 export default api;

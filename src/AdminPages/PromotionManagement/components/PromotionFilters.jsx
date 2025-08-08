@@ -42,7 +42,7 @@ const PromotionFilters = ({
               placeholder="Search promotions..."
               value={filters.searchTerm}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300 bg-white/50 backdrop-blur-sm"
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-[#8e191c] focus:border-transparent transition-all duration-300 bg-white/50 backdrop-blur-sm"
             />
           </div>
         </div>
@@ -54,7 +54,7 @@ const PromotionFilters = ({
             <select
               value={filters.selectedStatus}
               onChange={(e) => setFilters(prev => ({ ...prev, selectedStatus: e.target.value }))}
-              className="appearance-none bg-white/50 backdrop-blur-sm border border-gray-300 rounded-2xl px-4 py-3 pr-10 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300 min-w-[140px]"
+              className="appearance-none bg-white/50 backdrop-blur-sm border border-gray-300 rounded-2xl px-4 py-3 pr-10 focus:ring-2 focus:ring-[#8e191c] focus:border-transparent transition-all duration-300 min-w-[140px]"
             >
               {statusOptions.map(option => (
                 <option key={option.value} value={option.value}>
@@ -70,7 +70,7 @@ const PromotionFilters = ({
             <select
               value={filters.selectedType}
               onChange={(e) => setFilters(prev => ({ ...prev, selectedType: e.target.value }))}
-              className="appearance-none bg-white/50 backdrop-blur-sm border border-gray-300 rounded-2xl px-4 py-3 pr-10 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300 min-w-[160px]"
+              className="appearance-none bg-white/50 backdrop-blur-sm border border-gray-300 rounded-2xl px-4 py-3 pr-10 focus:ring-2 focus:ring-[#8e191c] focus:border-transparent transition-all duration-300 min-w-[160px]"
             >
               {typeOptions.map(option => (
                 <option key={option.value} value={option.value}>
@@ -86,7 +86,7 @@ const PromotionFilters = ({
             <select
               value={filters.sortBy}
               onChange={(e) => onSortChange(e.target.value)}
-              className="appearance-none bg-white/50 backdrop-blur-sm border border-gray-300 rounded-2xl px-4 py-3 pr-10 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300 min-w-[140px]"
+              className="appearance-none bg-white/50 backdrop-blur-sm border border-gray-300 rounded-2xl px-4 py-3 pr-10 focus:ring-2 focus:ring-[#8e191c] focus:border-transparent transition-all duration-300 min-w-[140px]"
             >
               {sortOptions.map(option => (
                 <option key={option.value} value={option.value}>
@@ -103,7 +103,7 @@ const PromotionFilters = ({
               onClick={() => onViewModeChange('grid')}
               className={`p-2 rounded-xl transition-all duration-300 ${
                 filters.viewMode === 'grid'
-                  ? 'bg-white shadow-lg text-red-600'
+                  ? 'bg-white shadow-lg text-[#8e191c]'
                   : 'text-gray-600 hover:text-gray-800'
               }`}
             >
@@ -113,7 +113,7 @@ const PromotionFilters = ({
               onClick={() => onViewModeChange('list')}
               className={`p-2 rounded-xl transition-all duration-300 ${
                 filters.viewMode === 'list'
-                  ? 'bg-white shadow-lg text-red-600'
+                  ? 'bg-white shadow-lg text-[#8e191c]'
                   : 'text-gray-600 hover:text-gray-800'
               }`}
             >
@@ -125,7 +125,7 @@ const PromotionFilters = ({
           <button
             onClick={onRefresh}
             disabled={loading}
-            className="p-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-3 bg-gradient-to-r from-[#8e191c] to-[#6b1416] hover:from-[#6b1416] hover:to-[#4a0f11] text-white rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <FiRefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
           </button>

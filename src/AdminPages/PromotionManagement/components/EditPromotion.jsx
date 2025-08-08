@@ -318,7 +318,7 @@ const EditPromotion = ({ promotion, onBack, onSuccess }) => {
     <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10">
-        <div className="absolute top-10 right-4 sm:right-20 w-24 h-24 sm:w-32 sm:h-32 bg-red-500/5 rounded-full blur-2xl animate-pulse"></div>
+        <div className="absolute top-10 right-4 sm:right-20 w-24 h-24 sm:w-32 sm:h-32 bg-[#8e191c]/5 rounded-full blur-2xl animate-pulse"></div>
         <div className="absolute bottom-20 left-4 sm:left-10 w-32 h-32 sm:w-40 sm:h-40 bg-blue-500/5 rounded-full blur-3xl animate-pulse delay-700"></div>
       </div>
 
@@ -327,7 +327,7 @@ const EditPromotion = ({ promotion, onBack, onSuccess }) => {
         <div className="flex items-center gap-4">
           <button
             onClick={onBack}
-            className="flex items-center gap-2 text-gray-600 hover:text-red-600 transition-colors duration-300 p-3 rounded-2xl hover:bg-gray-100"
+            className="flex items-center gap-2 text-gray-600 hover:text-[#8e191c] transition-colors duration-300 p-3 rounded-2xl hover:bg-gray-100"
           >
             <FiArrowLeft className="w-5 h-5" />
             <span className="font-medium">Back to Promotions</span>
@@ -335,7 +335,7 @@ const EditPromotion = ({ promotion, onBack, onSuccess }) => {
         </div>
         <div className="text-right">
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <FiEdit className="w-8 h-8 text-red-600" />
+            <FiEdit className="w-8 h-8 text-[#8e191c]" />
             Edit Promotion
           </h1>
           <p className="text-gray-600 mt-2">Update promotion details and settings</p>
@@ -344,14 +344,14 @@ const EditPromotion = ({ promotion, onBack, onSuccess }) => {
 
       {/* Error State */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-3xl p-6 mb-8">
+        <div className="bg-[#8e191c]/5 border border-[#8e191c]/20 rounded-3xl p-6 mb-8">
           <div className="flex items-center gap-3">
-            <div className="bg-red-100 p-2 rounded-xl">
-              <FiAlertCircle className="w-5 h-5 text-red-600" />
+            <div className="bg-[#8e191c]/10 p-2 rounded-xl">
+              <FiAlertCircle className="w-5 h-5 text-[#8e191c]" />
             </div>
             <div>
-              <h3 className="font-semibold text-red-900">Error Updating Promotion</h3>
-              <p className="text-red-700 mt-1">{error}</p>
+              <h3 className="font-semibold text-[#6b1416]">Error Updating Promotion</h3>
+              <p className="text-[#6b1416] mt-1">{error}</p>
             </div>
           </div>
         </div>
@@ -361,8 +361,8 @@ const EditPromotion = ({ promotion, onBack, onSuccess }) => {
         {/* Basic Information */}
         <div className="bg-white/80 backdrop-blur-sm rounded-3xl border border-gray-200/50 p-8 shadow-xl">
           <div className="flex items-center gap-3 mb-6">
-            <div className="p-3 bg-red-100 rounded-2xl">
-              <FiTag className="w-6 h-6 text-red-600" />
+            <div className="p-3 bg-[#8e191c]/10 rounded-2xl">
+              <FiTag className="w-6 h-6 text-[#8e191c]" />
             </div>
             <div>
               <h2 className="text-xl font-bold text-gray-900">Basic Information</h2>
@@ -378,7 +378,7 @@ const EditPromotion = ({ promotion, onBack, onSuccess }) => {
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300"
+                className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-[#8e191c] focus:border-transparent transition-all duration-300"
                 placeholder="e.g., Summer Sale 20% Off"
                 required
               />
@@ -390,7 +390,7 @@ const EditPromotion = ({ promotion, onBack, onSuccess }) => {
                 name="code"
                 value={formData.code}
                 onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300"
+                className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-[#8e191c] focus:border-transparent transition-all duration-300"
                 placeholder="e.g., SAVE20"
               />
             </div>
@@ -403,7 +403,7 @@ const EditPromotion = ({ promotion, onBack, onSuccess }) => {
               value={formData.description}
               onChange={handleInputChange}
               rows="3"
-              className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300"
+              className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-[#8e191c] focus:border-transparent transition-all duration-300"
               placeholder="Describe your promotion..."
             />
           </div>
@@ -497,7 +497,7 @@ const EditPromotion = ({ promotion, onBack, onSuccess }) => {
                 name="startDate"
                 value={formData.startDate}
                 onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300"
+                className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-[#8e191c] focus:border-transparent transition-all duration-300"
                 required
               />
             </div>
@@ -508,7 +508,7 @@ const EditPromotion = ({ promotion, onBack, onSuccess }) => {
                 name="endDate"
                 value={formData.endDate}
                 onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300"
+                className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-[#8e191c] focus:border-transparent transition-all duration-300"
                 required
               />
             </div>
@@ -523,7 +523,7 @@ const EditPromotion = ({ promotion, onBack, onSuccess }) => {
                 name="maxUsage"
                 value={formData.maxUsage}
                 onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300"
+                className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-[#8e191c] focus:border-transparent transition-all duration-300"
               />
             </div>
             <div>
@@ -534,7 +534,7 @@ const EditPromotion = ({ promotion, onBack, onSuccess }) => {
                 name="maxUsagePerUser"
                 value={formData.maxUsagePerUser}
                 onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300"
+                className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-[#8e191c] focus:border-transparent transition-all duration-300"
               />
             </div>
             <div>
@@ -545,7 +545,7 @@ const EditPromotion = ({ promotion, onBack, onSuccess }) => {
                 name="priority"
                 value={formData.priority}
                 onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300"
+                className="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-[#8e191c] focus:border-transparent transition-all duration-300"
               />
             </div>
           </div>
@@ -589,7 +589,7 @@ const EditPromotion = ({ promotion, onBack, onSuccess }) => {
           <button
             type="submit"
             disabled={loading}
-            className="px-8 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-2xl font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-8 py-3 bg-gradient-to-r from-[#8e191c] to-[#6b1416] hover:from-[#6b1416] hover:to-[#4a0f11] text-white rounded-2xl font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {loading ? (
               <>

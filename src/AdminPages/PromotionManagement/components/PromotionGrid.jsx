@@ -39,7 +39,7 @@ const PromotionGrid = ({ promotions, onEdit, onView, onDelete, formatDate, forma
     
     if (now > endDate) {
       return {
-        color: 'bg-red-100 text-red-700 border-red-300',
+        color: 'bg-[#8e191c]/10 text-[#8e191c] border-[#8e191c]/30',
         icon: FiAlertCircle,
         label: 'Expired'
       };
@@ -96,7 +96,7 @@ const PromotionGrid = ({ promotions, onEdit, onView, onDelete, formatDate, forma
         return (
           <div 
             key={promotion._id} 
-            className="bg-white/80 backdrop-blur-sm rounded-3xl cursor-pointer transform transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-red-500/20 hover:-translate-y-2 group shadow-xl overflow-hidden border border-gray-200/50"
+            className="bg-white/80 backdrop-blur-sm rounded-3xl cursor-pointer transform transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-[#8e191c]/20 hover:-translate-y-2 group shadow-xl overflow-hidden border border-gray-200/50"
           >
             <div className="p-6">
               {/* Header */}
@@ -116,7 +116,7 @@ const PromotionGrid = ({ promotions, onEdit, onView, onDelete, formatDate, forma
               {/* Promotion Info */}
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-red-600 transition-colors duration-300">
+                  <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-[#8e191c] transition-colors duration-300">
                     {promotion.name}
                   </h3>
                   {promotion.description && (
@@ -198,7 +198,7 @@ const PromotionGrid = ({ promotions, onEdit, onView, onDelete, formatDate, forma
                         e.stopPropagation();
                         onDelete(promotion);
                       }}
-                      className="flex items-center gap-2 text-red-600 hover:text-red-800 transition-colors"
+                      className="flex items-center gap-2 text-[#8e191c] hover:text-[#6b1416] transition-colors"
                     >
                       <FiTrash2 className="w-4 h-4" />
                       <span className="text-sm font-medium">Delete</span>
