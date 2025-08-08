@@ -186,6 +186,32 @@ const promotionService = {
       console.error('Error fetching user consumed promotions:', error);
       throw error;
     }
+  },
+
+  // Remove a specific promotion from cart
+  removePromotion: async (cartId, promotionId, token) => {
+    try {
+      const response = await api.delete(`/cart/promotions/${promotionId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response;
+    } catch (error) {
+      console.error('Error removing promotion from cart:', error);
+      throw error;
+    }
+  },
+
+  // Remove all promotions from cart
+  removeAllPromotions: async (cartId, token) => {
+    try {
+      const response = await api.delete('/cart/promotions', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response;
+    } catch (error) {
+      console.error('Error removing all promotions from cart:', error);
+      throw error;
+    }
   }
 };
 

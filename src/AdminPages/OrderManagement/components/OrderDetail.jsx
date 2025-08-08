@@ -165,7 +165,6 @@ const OrderDetail = ({
                 {/* Order Items */}
                 <OrderItems order={order} formatPrice={formatPrice} />
 
-
               </div>
 
               {/* Right Column - Order Status and Details */}

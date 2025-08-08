@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import promotionService from '../services/promotionService';
 import { useAuth } from './AuthContext';
 import { useStore } from './StoreContext';
@@ -131,66 +131,38 @@ export const PromotionProvider = ({ children }) => {
   };
 
   // Check if promotion has been consumed by the user
-  const isPromotionConsumed = (promotion) => {
+  const isPromotionConsumed = useCallback((promotion) => {
     if (!isAuthenticated || !user?._id) return false;
     
-    return consumedPromotions.some(consumed => 
-      consumed.promotion?._id === promotion._id || consumed.promotion === promotion._id
-    );
-  };
+    return consumedPromotions.some(consumed => {
+      const consumedPromotionId = consumed.promotion?._id || consumed.promotion;
+      const promotionId = promotion._id || promotion.id;
+      
+      if (!consumedPromotionId || !promotionId) return false;
+      
+      return consumedPromotionId.toString() === promotionId.toString();
+    });
+  }, [consumedPromotions, isAuthenticated, user?._id]);
 
   // Check if user has reached max usage for this promotion
-  const hasUserReachedMaxUsage = (promotion) => {
+  const hasUserReachedMaxUsage = useCallback((promotion) => {
     if (!isAuthenticated || !user?._id) return false;
     
     if (!promotion.maxUsagePerUser || promotion.maxUsagePerUser === 0) return false;
     
-    const userUsageCount = consumedPromotions.filter(consumed => 
-      consumed.promotion?._id === promotion._id || consumed.promotion === promotion._id
-    ).length;
+    const userUsageCount = consumedPromotions.filter(consumed => {
+      const consumedPromotionId = consumed.promotion?._id || consumed.promotion;
+      const promotionId = promotion._id || promotion.id;
+      
+      if (!consumedPromotionId || !promotionId) return false;
+      
+      return consumedPromotionId.toString() === promotionId.toString();
+    }).length;
     
     return userUsageCount >= promotion.maxUsagePerUser;
-  };
+  }, [consumedPromotions, isAuthenticated, user?._id]);
 
-  // Helper function to check if promotion is valid for current cart
-  const isPromotionValidForCart = (promotion, cartData) => {
-    if (!promotion || !cartData.items) return false;
-
-    // Check minimum order amount
-    const cartTotal = cartData.items.reduce((sum, item) => {
-      if (item.isFreeItem) return sum;
-      if (item.freeQuantity && item.freeQuantity > 0) {
-        const chargeableQuantity = item.quantity - item.freeQuantity;
-        return sum + (item.price * Math.max(0, chargeableQuantity));
-      }
-      return sum + (item.price * item.quantity);
-    }, 0);
-
-    if (promotion.minOrderAmount && cartTotal < promotion.minOrderAmount) {
-      return false;
-    }
-
-    // Check applicable products/categories
-    const hasApplicableItems = cartData.items.some(item => {
-      return isProductApplicableForPromotion(item.product, promotion);
-    });
-
-    if (!hasApplicableItems) return false;
-
-    // Type-specific validation
-    switch (promotion.type) {
-      case 'buyXGetY':
-        return validateBuyXGetY(promotion, cartData);
-      case 'quantityDiscount':
-        return validateQuantityDiscount(promotion, cartData);
-      case 'cartTotal':
-        return validateCartTotal(promotion, cartData);
-      default:
-        return false;
-    }
-  };
-
-  const isProductApplicableForPromotion = (product, promotion) => {
+  const isProductApplicableForPromotion = useCallback((product, promotion) => {
     if (!product || !product._id) return false;
 
     const applicableProducts = promotion.applicableProducts || [];
@@ -235,9 +207,9 @@ export const PromotionProvider = ({ children }) => {
     }
 
     return false;
-  };
+  }, []);
 
-  const validateBuyXGetY = (promotion, cartData) => {
+  const validateBuyXGetY = useCallback((promotion, cartData) => {
     const rule = promotion.rule?.buyXGetY;
     if (!rule || !rule.buyQuantity || rule.buyQuantity <= 0) return false;
 
@@ -248,9 +220,9 @@ export const PromotionProvider = ({ children }) => {
       }
       return false;
     });
-  };
+  }, [isProductApplicableForPromotion]);
 
-  const validateQuantityDiscount = (promotion, cartData) => {
+  const validateQuantityDiscount = useCallback((promotion, cartData) => {
     const rule = promotion.rule?.quantityDiscount;
     if (!rule || !rule.minQuantity || rule.minQuantity <= 0) return false;
 
@@ -263,9 +235,9 @@ export const PromotionProvider = ({ children }) => {
     }, 0);
 
     return totalQuantity >= rule.minQuantity;
-  };
+  }, [isProductApplicableForPromotion]);
 
-  const validateCartTotal = (promotion, cartData) => {
+  const validateCartTotal = useCallback((promotion, cartData) => {
     const rule = promotion.rule?.cartTotal;
     if (!rule || rule.minAmount === undefined || rule.minAmount < 0) return false;
 
@@ -283,7 +255,45 @@ export const PromotionProvider = ({ children }) => {
     }, 0);
 
     return applicableTotal >= rule.minAmount;
-  };
+  }, [isProductApplicableForPromotion]);
+
+  // Helper function to check if promotion is valid for current cart
+  const isPromotionValidForCart = useCallback((promotion, cartData) => {
+    if (!promotion || !cartData.items) return false;
+
+    // Check minimum order amount
+    const cartTotal = cartData.items.reduce((sum, item) => {
+      if (item.isFreeItem) return sum;
+      if (item.freeQuantity && item.freeQuantity > 0) {
+        const chargeableQuantity = item.quantity - item.freeQuantity;
+        return sum + (item.price * Math.max(0, chargeableQuantity));
+      }
+      return sum + (item.price * item.quantity);
+    }, 0);
+
+    if (promotion.minOrderAmount && cartTotal < promotion.minOrderAmount) {
+      return false;
+    }
+
+    // Check applicable products/categories
+    const hasApplicableItems = cartData.items.some(item => {
+      return isProductApplicableForPromotion(item.product, promotion);
+    });
+
+    if (!hasApplicableItems) return false;
+
+    // Type-specific validation
+    switch (promotion.type) {
+      case 'buyXGetY':
+        return validateBuyXGetY(promotion, cartData);
+      case 'quantityDiscount':
+        return validateQuantityDiscount(promotion, cartData);
+      case 'cartTotal':
+        return validateCartTotal(promotion, cartData);
+      default:
+        return false;
+    }
+  }, [isProductApplicableForPromotion, validateBuyXGetY, validateQuantityDiscount, validateCartTotal]);
 
   // Get promotion description for display
   const getPromotionDescription = (promotion) => {
@@ -320,23 +330,8 @@ export const PromotionProvider = ({ children }) => {
     return promotion.description || '';
   };
 
-  // Calculate savings for a promotion
-  const calculatePotentialSavings = (promotion, cartData) => {
-    if (!promotion.rule || !cartData.items) return 0;
-
-    switch (promotion.type) {
-      case 'buyXGetY':
-        return calculateBuyXGetYSavings(promotion, cartData);
-      case 'quantityDiscount':
-        return calculateQuantityDiscountSavings(promotion, cartData);
-      case 'cartTotal':
-        return calculateCartTotalSavings(promotion, cartData);
-      default:
-        return 0;
-    }
-  };
-
-  const calculateBuyXGetYSavings = (promotion, cartData) => {
+  // Calculate savings for a promotion - Helper functions first
+  const calculateBuyXGetYSavings = useCallback((promotion, cartData) => {
     const rule = promotion.rule.buyXGetY;
     if (!rule) return 0;
 
@@ -349,9 +344,9 @@ export const PromotionProvider = ({ children }) => {
       }
     });
     return totalSavings;
-  };
+  }, [isProductApplicableForPromotion]);
 
-  const calculateQuantityDiscountSavings = (promotion, cartData) => {
+  const calculateQuantityDiscountSavings = useCallback((promotion, cartData) => {
     const rule = promotion.rule.quantityDiscount;
     if (!rule) return 0;
 
@@ -371,9 +366,9 @@ export const PromotionProvider = ({ children }) => {
       return applicableTotal * rule.discountPercentage / 100;
     }
     return 0;
-  };
+  }, [isProductApplicableForPromotion]);
 
-  const calculateCartTotalSavings = (promotion, cartData) => {
+  const calculateCartTotalSavings = useCallback((promotion, cartData) => {
     const rule = promotion.rule.cartTotal;
     if (!rule) return 0;
 
@@ -392,7 +387,29 @@ export const PromotionProvider = ({ children }) => {
       return applicableTotal * rule.discountPercentage / 100;
     }
     return 0;
-  };
+  }, [isProductApplicableForPromotion]);
+
+  const calculatePotentialSavings = useCallback((promotion, cartData) => {
+    if (!promotion.rule || !cartData.items) return 0;
+
+    switch (promotion.type) {
+      case 'buyXGetY':
+        return calculateBuyXGetYSavings(promotion, cartData);
+      case 'quantityDiscount':
+        return calculateQuantityDiscountSavings(promotion, cartData);
+      case 'cartTotal':
+        return calculateCartTotalSavings(promotion, cartData);
+      default:
+        return 0;
+    }
+  }, [calculateBuyXGetYSavings, calculateQuantityDiscountSavings, calculateCartTotalSavings]);
+
+  // Helper function to get promotion priority (DB priority first, then type-based fallback)
+  const getPromotionPriority = useCallback((promotion) => {
+    // Prefer DB priority; fall back to a sane default by type
+    const byType = { cartTotal: 3, buyXGetY: 2, quantityDiscount: 1 };
+    return (promotion?.priority ?? byType[promotion?.type] ?? 0);
+  }, []);
 
   // Effects
   useEffect(() => {
@@ -419,7 +436,8 @@ export const PromotionProvider = ({ children }) => {
     isPromotionValidForCart,
     isPromotionConsumed,
     hasUserReachedMaxUsage,
-    checkPromotionValidity
+    checkPromotionValidity,
+    getPromotionPriority
   };
 
   return (

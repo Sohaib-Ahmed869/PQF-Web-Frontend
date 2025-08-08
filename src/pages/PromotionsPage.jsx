@@ -27,7 +27,18 @@ import {
 } from 'lucide-react';
 
 const PromotionsPage = () => {
-  const { promotions, validPromotions, loading, error, getPromotionDescription, calculatePotentialSavings } = usePromotion();
+  const { 
+    promotions, 
+    validPromotions, 
+    loading, 
+    error, 
+    getPromotionDescription, 
+    calculatePotentialSavings,
+    isPromotionConsumed,
+    hasUserReachedMaxUsage,
+    isPromotionValidForCart,
+    getPromotionPriority
+  } = usePromotion();
   const { cart, getCartItemCount } = useCart();
   const { selectedStore } = useStore();
   const { token } = useAuth();
@@ -35,6 +46,9 @@ const PromotionsPage = () => {
   const [cartApplicablePromotions, setCartApplicablePromotions] = useState([]);
   const [loadingCartPromotions, setLoadingCartPromotions] = useState(false);
   const [copiedCode, setCopiedCode] = useState(null);
+
+  // Single-promo behavior: check if a promotion is already applied
+  const hasAppliedPromo = (cart.appliedPromotions?.length || 0) > 0;
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -52,7 +66,49 @@ const PromotionsPage = () => {
         try {
           const response = await promotionService.getCartApplicablePromotions(selectedStore._id, token);
           if (response.data.success) {
-            setCartApplicablePromotions(response.data.data);
+            // Filter out promotions that the user has already used and ensure they're actually valid for cart
+            const filteredPromotions = response.data.data.filter(promotion => {
+              // Check if promotion has been consumed by the user
+              if (isPromotionConsumed(promotion)) {
+                console.log('Filtering out consumed promotion:', promotion.name);
+                return false;
+              }
+              
+              // Check if user has reached max usage for this promotion
+              if (hasUserReachedMaxUsage(promotion)) {
+                console.log('Filtering out promotion with max usage reached:', promotion.name);
+                return false;
+              }
+              
+              // Check if promotion is actually valid for the current cart
+              if (!isPromotionValidForCart(promotion, cart)) {
+                console.log('Filtering out promotion not valid for cart:', promotion.name);
+                return false;
+              }
+              
+              return true;
+            });
+            
+            // Sort promotions by priority (same as Cart component)
+            filteredPromotions.sort((a, b) => {
+              // 1) prioritize by type (cartTotal first)
+              const typeDiff = getPromotionPriority(b) - getPromotionPriority(a);
+              if (typeDiff !== 0) return typeDiff;
+
+              // 2) tie-breaker: higher savings first
+              const aSave = calculatePotentialSavings(a, cart) || 0;
+              const bSave = calculatePotentialSavings(b, cart) || 0;
+              return bSave - aSave;
+            });
+            
+            console.log('Filtered promotions:', filteredPromotions.length, 'out of', response.data.data.length);
+            
+            // Single-promo behavior: if a promotion is already applied, don't show other available promotions
+            if (hasAppliedPromo) {
+              setCartApplicablePromotions([]);
+            } else {
+              setCartApplicablePromotions(filteredPromotions);
+            }
           }
         } catch (error) {
           console.error('Error fetching cart applicable promotions:', error);
@@ -66,7 +122,7 @@ const PromotionsPage = () => {
     };
 
     fetchCartApplicablePromotions();
-  }, [cart.items, selectedStore, token]);
+  }, [cart.items, selectedStore, token, isPromotionConsumed, hasUserReachedMaxUsage, isPromotionValidForCart, getPromotionPriority, calculatePotentialSavings, hasAppliedPromo]);
 
   const formatPrice = (amount) => {
     return new Intl.NumberFormat('en-US', {
@@ -119,7 +175,8 @@ const PromotionsPage = () => {
     const end = new Date(endDate);
     const diffTime = end - now;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays <= 3;
+    // Return true if promotion expires within 3 days (including today)
+    return diffDays >= 0 && diffDays <= 3;
   };
 
   const copyToClipboard = async (code) => {
@@ -132,14 +189,173 @@ const PromotionsPage = () => {
     }
   };
 
-  // Only show valid promotions by default, or filter based on activeTab
-  const filteredPromotions = activeTab === 'valid' 
-    ? cartApplicablePromotions 
-    : activeTab === 'all' 
-    ? promotions 
-    : activeTab === 'expiring' 
-    ? promotions.filter(p => isPromotionExpiringSoon(p.endDate))
-    : cartApplicablePromotions;
+  // Filter promotions based on activeTab and user usage
+  const getFilteredPromotions = () => {
+    let filteredPromotions = [];
+    
+    switch (activeTab) {
+      case 'valid':
+        // Use cartApplicablePromotions which are already filtered for usage
+        filteredPromotions = cartApplicablePromotions;
+        break;
+      case 'all':
+        // Filter all promotions to exclude consumed ones and currently applied ones
+        filteredPromotions = promotions.filter(promotion => {
+          if (isPromotionConsumed(promotion)) {
+            console.log('Filtering out consumed promotion (all tab):', promotion.name);
+            return false;
+          }
+          if (hasUserReachedMaxUsage(promotion)) {
+            console.log('Filtering out promotion with max usage reached (all tab):', promotion.name);
+            return false;
+          }
+          // Check if promotion is currently applied to the cart
+          const isCurrentlyApplied = cart.appliedPromotions?.some(
+            appliedPromo => {
+              // Handle both populated and unpopulated promotion objects
+              let appliedPromotionId;
+              if (appliedPromo.promotion && typeof appliedPromo.promotion === 'object' && appliedPromo.promotion._id) {
+                // If promotion is populated (has _id field)
+                appliedPromotionId = appliedPromo.promotion._id;
+              } else {
+                // If promotion is just an ObjectId
+                appliedPromotionId = appliedPromo.promotion;
+              }
+              
+              const promotionId = promotion._id || promotion.id;
+              const match = appliedPromotionId && promotionId && appliedPromotionId.toString() === promotionId.toString();
+              
+              if (match) {
+                console.log('Filtering out currently applied promotion (all tab):', promotion.name);
+              }
+              
+              return match;
+            }
+          );
+          if (isCurrentlyApplied) {
+            return false;
+          }
+          return true;
+        });
+        break;
+      case 'expiring':
+        // Filter expiring promotions to exclude consumed ones and currently applied ones
+        filteredPromotions = promotions.filter(promotion => {
+          if (isPromotionConsumed(promotion)) {
+            console.log('Filtering out consumed promotion (expiring tab):', promotion.name);
+            return false;
+          }
+          if (hasUserReachedMaxUsage(promotion)) {
+            console.log('Filtering out promotion with max usage reached (expiring tab):', promotion.name);
+            return false;
+          }
+          // Check if promotion is currently applied to the cart
+          const isCurrentlyApplied = cart.appliedPromotions?.some(
+            appliedPromo => {
+              // Handle both populated and unpopulated promotion objects
+              let appliedPromotionId;
+              if (appliedPromo.promotion && typeof appliedPromo.promotion === 'object' && appliedPromo.promotion._id) {
+                // If promotion is populated (has _id field)
+                appliedPromotionId = appliedPromo.promotion._id;
+              } else {
+                // If promotion is just an ObjectId
+                appliedPromotionId = appliedPromo.promotion;
+              }
+              
+              const promotionId = promotion._id || promotion.id;
+              const match = appliedPromotionId && promotionId && appliedPromotionId.toString() === promotionId.toString();
+              
+              if (match) {
+                console.log('Filtering out currently applied promotion (expiring tab):', promotion.name);
+              }
+              
+              return match;
+            }
+          );
+          if (isCurrentlyApplied) {
+            return false;
+          }
+          return isPromotionExpiringSoon(promotion.endDate);
+        });
+        break;
+      default:
+        filteredPromotions = cartApplicablePromotions;
+    }
+    
+    console.log(`Filtered promotions for ${activeTab} tab:`, filteredPromotions.length);
+    return filteredPromotions;
+  };
+
+  // Calculate counts for each tab
+  const getValidPromotionsCount = () => {
+    return cartApplicablePromotions.length;
+  };
+
+  const getAllPromotionsCount = () => {
+    return promotions.filter(promotion => {
+      if (isPromotionConsumed(promotion)) {
+        return false;
+      }
+      if (hasUserReachedMaxUsage(promotion)) {
+        return false;
+      }
+      // Check if promotion is currently applied to the cart
+      const isCurrentlyApplied = cart.appliedPromotions?.some(
+        appliedPromo => {
+          // Handle both populated and unpopulated promotion objects
+          let appliedPromotionId;
+          if (appliedPromo.promotion && typeof appliedPromo.promotion === 'object' && appliedPromo.promotion._id) {
+            // If promotion is populated (has _id field)
+            appliedPromotionId = appliedPromo.promotion._id;
+          } else {
+            // If promotion is just an ObjectId
+            appliedPromotionId = appliedPromo.promotion;
+          }
+          
+          const promotionId = promotion._id || promotion.id;
+          return appliedPromotionId && promotionId && appliedPromotionId.toString() === promotionId.toString();
+        }
+      );
+      if (isCurrentlyApplied) {
+        return false;
+      }
+      return true;
+    }).length;
+  };
+
+  const getExpiringPromotionsCount = () => {
+    return promotions.filter(promotion => {
+      if (isPromotionConsumed(promotion)) {
+        return false;
+      }
+      if (hasUserReachedMaxUsage(promotion)) {
+        return false;
+      }
+      // Check if promotion is currently applied to the cart
+      const isCurrentlyApplied = cart.appliedPromotions?.some(
+        appliedPromo => {
+          // Handle both populated and unpopulated promotion objects
+          let appliedPromotionId;
+          if (appliedPromo.promotion && typeof appliedPromo.promotion === 'object' && appliedPromo.promotion._id) {
+            // If promotion is populated (has _id field)
+            appliedPromotionId = appliedPromo.promotion._id;
+          } else {
+            // If promotion is just an ObjectId
+            appliedPromotionId = appliedPromo.promotion;
+          }
+          
+          const promotionId = promotion._id || promotion.id;
+          return appliedPromotionId && promotionId && appliedPromotionId.toString() === promotionId.toString();
+        }
+      );
+      if (isCurrentlyApplied) {
+        return false;
+      }
+      return isPromotionExpiringSoon(promotion.endDate);
+    }).length;
+  };
+
+  const filteredPromotions = getFilteredPromotions();
 
   if (loading || (activeTab === 'valid' && loadingCartPromotions)) {
     return (
@@ -179,7 +395,7 @@ const PromotionsPage = () => {
             >
               <div className="flex items-center">
                 <CheckCircle className="w-4 h-4 mr-2" />
-                Available for Your Cart ({cartApplicablePromotions.length})
+                Available for Your Cart ({getValidPromotionsCount()})
               </div>
             </button>
             <button
@@ -192,7 +408,7 @@ const PromotionsPage = () => {
             >
               <div className="flex items-center">
                 <Star className="w-4 h-4 mr-2" />
-                All Promotions ({promotions.length})
+                All Promotions ({getAllPromotionsCount()})
               </div>
             </button>
             <button
@@ -205,7 +421,7 @@ const PromotionsPage = () => {
             >
               <div className="flex items-center">
                 <Clock className="w-4 h-4 mr-2" />
-                Expiring Soon ({promotions.filter(p => isPromotionExpiringSoon(p.endDate)).length})
+                Expiring Soon ({getExpiringPromotionsCount()})
               </div>
             </button>
           </div>
@@ -218,25 +434,40 @@ const PromotionsPage = () => {
           <div className="text-center py-16">
             <Gift className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-medium text-gray-900 mb-2">
-              {activeTab === 'valid' 
+              {activeTab === 'valid' && hasAppliedPromo
+                ? "A promotion is already applied to your cart"
+                : activeTab === 'valid' 
                 ? "No promotions available for your current cart"
                 : activeTab === 'expiring'
                 ? "No promotions expiring soon"
-                : "No active promotions"
+                : "No active promotions available"
               }
             </h3>
             <p className="text-gray-500 max-w-md mx-auto">
-              {activeTab === 'valid' 
+              {activeTab === 'valid' && hasAppliedPromo
+                ? "Remove the current promotion in your cart to apply a different one."
+                : activeTab === 'valid' 
                 ? "Add more items to your cart to unlock available promotions!"
-                : "Check back later for new deals and offers."
+                : activeTab === 'expiring'
+                ? "No promotions are expiring soon."
+                : "You may have already used all available promotions or none are currently active."
               }
             </p>
-            {activeTab === 'valid' && (
+            {activeTab === 'valid' && !hasAppliedPromo && (
               <button
                 onClick={() => setActiveTab('all')}
                 className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 transition-colors"
               >
                 View All Promotions
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </button>
+            )}
+            {activeTab === 'valid' && hasAppliedPromo && (
+              <button
+                onClick={() => window.location.href = '/cart'}
+                className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors"
+              >
+                Go to Cart
                 <ArrowRight className="w-4 h-4 ml-2" />
               </button>
             )}
@@ -247,10 +478,11 @@ const PromotionsPage = () => {
               const isValid = cartApplicablePromotions.some(p => p._id === promotion._id || p.id === promotion.id);
               const isExpiring = isPromotionExpiringSoon(promotion.endDate);
               const potentialSavings = calculatePotentialSavings(promotion, cart);
+              const promotionKey = promotion._id || promotion.id || `promotion-${Math.random()}`;
               
               return (
                 <div
-                  key={promotion._id}
+                  key={promotionKey}
                   className={`bg-white rounded-lg shadow-sm border-2 transition-all duration-300 hover:shadow-md ${
                     isValid ? 'border-green-200 bg-green-50/30' : 'border-gray-200'
                   }`}

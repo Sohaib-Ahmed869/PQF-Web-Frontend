@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useCart } from '../context/CartContext';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -19,6 +19,7 @@ import { useStore } from '../context/StoreContext';
 import promotionService from '../services/promotionService';
 import cartService from '../services/cartService';
 import PromotionBanner from './PromotionBanner';
+import { usePromotion } from '../context/PromotionContext';
 
 // Add CSS for fade-in animation and lazy loading
 const fadeInStyle = `
@@ -234,9 +235,23 @@ const LazyCartItem = React.memo(({ item, index, onQuantityChange, onRemove, upda
 });
 
 const Cart = () => {
-  const { cart, updateCartItem, removeFromCart, clearCart, loading, error, setCart, refreshCart } = useCart();
-  const { user, token } = useAuth();
+  const { 
+    cart, 
+    updateCartItem, 
+    removeFromCart, 
+    clearCart, 
+    refreshCart,
+    setCart,
+    loading,
+    error
+  } = useCart();
+  const { token, isAuthenticated, user } = useAuth();
   const { selectedStore } = useStore();
+  const { 
+    calculatePotentialSavings, 
+    isPromotionValidForCart,
+    getPromotionPriority 
+  } = usePromotion();
   const navigate = useNavigate();
   
   const [updateLoading, setUpdateLoading] = useState({});
@@ -247,6 +262,11 @@ const Cart = () => {
   const [promotionCode, setPromotionCode] = useState('');
   const [applyingPromotion, setApplyingPromotion] = useState(false);
   const [promotionError, setPromotionError] = useState(null);
+  const [availablePromotions, setAvailablePromotions] = useState([]);
+
+  // Single-promo behavior: check if a promotion is already applied
+  const hasAppliedPromo = (cart.appliedPromotions?.length || 0) > 0;
+  const currentPromo = hasAppliedPromo ? cart.appliedPromotions[0] : null;
 
   // Initialize applied promotions from cart data
   useEffect(() => {
@@ -260,23 +280,77 @@ const Cart = () => {
     }
   }, [cart.appliedPromotions]);
 
-  // Fetch applicable promotions
+  // Create a stable reference for applied promotions
+  const appliedPromotionsStable = useMemo(() => {
+    return cart.appliedPromotions || [];
+  }, [cart.appliedPromotions]);
+
+  // Fetch applicable promotions for the cart
   useEffect(() => {
     const fetchPromotions = async () => {
       if (cart.items.length > 0 && selectedStore && token) {
         try {
           const response = await promotionService.getCartApplicablePromotions(selectedStore._id, token);
           if (response.data.success) {
-            setPromotions(response.data.data);
+            // Filter promotions to only include those that are actually valid for the current cart
+            const validPromotions = response.data.data.filter(promotion => {
+              return isPromotionValidForCart(promotion, cart);
+            });
+            
+            // Sort promotions by priority (higher priority first, then by savings)
+            const sortedPromotions = validPromotions.sort((a, b) => {
+              // 1) prioritize by type (cartTotal first)
+              const typeDiff = getPromotionPriority(b) - getPromotionPriority(a);
+              if (typeDiff !== 0) return typeDiff;
+
+              // 2) tie-breaker: higher savings first
+              const aDiscount = calculatePotentialSavings(a, cart) || 0;
+              const bDiscount = calculatePotentialSavings(b, cart) || 0;
+              return bDiscount - aDiscount;
+            });
+            
+            setAvailablePromotions(sortedPromotions);
+            setPromotions(sortedPromotions);
+            
+            // Filter out already applied promotions and set the highest priority promotion code
+            const appliedPromotionIds = appliedPromotionsStable.map(ap => {
+              const appliedPromotionId = ap.promotion?._id || ap.promotion;
+              return appliedPromotionId ? appliedPromotionId.toString() : null;
+            }).filter(Boolean);
+            
+            const availablePromotions = sortedPromotions.filter(promotion => {
+              const promotionId = promotion._id || promotion.id;
+              return !appliedPromotionIds.includes(promotionId?.toString());
+            });
+            
+            // Set the highest priority available promotion code in the input field, or clear if none available
+            if (availablePromotions.length > 0 && availablePromotions[0].code) {
+              setPromotionCode(availablePromotions[0].code);
+            } else {
+              setPromotionCode(''); // Clear if no available promotions
+            }
+          } else {
+            // If the response is not successful, clear the promotion code
+            setPromotionCode('');
+            setAvailablePromotions([]);
+            setPromotions([]);
           }
         } catch (error) {
           console.error('Error fetching promotions:', error);
+          // If there's an error, clear the promotion code
+          setPromotionCode('');
+          setAvailablePromotions([]);
+          setPromotions([]);
         }
+      } else {
+        setPromotionCode(''); // Clear if no items in cart
+        setAvailablePromotions([]);
+        setPromotions([]);
       }
     };
 
     fetchPromotions();
-  }, [cart.items, selectedStore, token]);
+  }, [cart.items, appliedPromotionsStable, selectedStore, token, calculatePotentialSavings, isPromotionValidForCart, getPromotionPriority]);
 
   const getCartItemCount = () => {
     return cart.items.reduce((total, item) => total + item.quantity, 0);
@@ -326,6 +400,12 @@ const Cart = () => {
   const handleClearCart = async () => {
     try {
       await clearCart();
+      // Clear promotion code when cart is cleared
+      setPromotionCode('');
+      setAppliedPromotions([]);
+      setAvailablePromotions([]);
+      setPromotions([]);
+      setPromotionError(null);
     } catch (error) {
       console.error('Error clearing cart:', error);
     }
@@ -395,6 +475,12 @@ const Cart = () => {
     setPromotionError(null);
 
     try {
+      // If one is applied, remove it first (single-promo policy)
+      if (hasAppliedPromo) {
+        await promotionService.removeAllPromotions(cart._id, token);
+      }
+
+      // Now apply the new one
       const response = await promotionService.applyPromotionByCode(
         promotionCode.trim(),
         cart._id,
@@ -409,7 +495,7 @@ const Cart = () => {
         const totalDiscount = response.data.data.totalDiscount;
         const originalTotal = response.data.data.originalTotal;
         
-        // Clear the promotion code input
+        // Clear the promotion code input temporarily
         setPromotionCode('');
         setPromotionError(null);
         
@@ -418,6 +504,42 @@ const Cart = () => {
           await refreshCart();
         } else {
           await refreshCartData();
+        }
+        
+        // Re-fetch promotions to update the promotion code with the next highest priority
+        const promotionResponse = await promotionService.getCartApplicablePromotions(selectedStore._id, token);
+        if (promotionResponse.data.success) {
+          const sortedPromotions = promotionResponse.data.data.sort((a, b) => {
+            // 1) prioritize by type (cartTotal first)
+            const typeDiff = getPromotionPriority(b) - getPromotionPriority(a);
+            if (typeDiff !== 0) return typeDiff;
+
+            // 2) tie-breaker: higher savings first
+            const aDiscount = calculatePotentialSavings(a, cart) || 0;
+            const bDiscount = calculatePotentialSavings(b, cart) || 0;
+            return bDiscount - aDiscount;
+          });
+          
+          // Filter out already applied promotions and set the next highest priority promotion code
+          const appliedPromotionIds = (cart.appliedPromotions || []).map(ap => {
+            const id = ap.promotion?._id || ap.promotion?.id || ap.promotion;
+            return id ? id.toString() : null;
+          }).filter(Boolean);
+          
+          const availablePromotions = sortedPromotions.filter(promotion => {
+            const promotionId = promotion._id || promotion.id;
+            return !appliedPromotionIds.includes(promotionId?.toString());
+          });
+          
+          // Set the next highest priority available promotion code, or clear if none available
+          if (availablePromotions.length > 0 && availablePromotions[0].code) {
+            setPromotionCode(availablePromotions[0].code);
+          } else {
+            setPromotionCode(''); // Clear if no available promotions
+          }
+        } else {
+          // If the promotion response fails, clear the promotion code
+          setPromotionCode('');
         }
         
         // Show success message
@@ -484,8 +606,93 @@ const Cart = () => {
     }
   };
 
-  const handleRemovePromotion = (promotionId) => {
+  const handleRemovePromotion = async (promotionId) => {
     setAppliedPromotions(prev => prev.filter(p => p.id !== promotionId));
+    
+    // Re-fetch promotions to potentially set a new promotion code
+    if (cart.items.length > 0 && selectedStore && token) {
+      try {
+        const response = await promotionService.getCartApplicablePromotions(selectedStore._id, token);
+        if (response.data.success) {
+          // Filter promotions to only include those that are actually valid for the current cart
+          const validPromotions = response.data.data.filter(promotion => {
+            return isPromotionValidForCart(promotion, cart);
+          });
+          
+          // Sort promotions by priority (higher priority first, then by savings)
+          const sortedPromotions = validPromotions.sort((a, b) => {
+            // 1) prioritize by type (cartTotal first)
+            const typeDiff = getPromotionPriority(b) - getPromotionPriority(a);
+            if (typeDiff !== 0) return typeDiff;
+
+            // 2) tie-breaker: higher savings first
+            const aDiscount = calculatePotentialSavings(a, cart) || 0;
+            const bDiscount = calculatePotentialSavings(b, cart) || 0;
+            return bDiscount - aDiscount;
+          });
+          
+          setAvailablePromotions(sortedPromotions);
+          setPromotions(sortedPromotions);
+          
+          // Filter out already applied promotions and set the highest priority promotion code
+          const appliedPromotionIds = appliedPromotionsStable.map(ap => {
+            const appliedPromotionId = ap.promotion?._id || ap.promotion;
+            return appliedPromotionId ? appliedPromotionId.toString() : null;
+          }).filter(Boolean);
+          
+          const availablePromotions = sortedPromotions.filter(promotion => {
+            const promotionId = promotion._id || promotion.id;
+            return !appliedPromotionIds.includes(promotionId?.toString());
+          });
+          
+          // Set the highest priority available promotion code in the input field, or clear if none available
+          if (availablePromotions.length > 0 && availablePromotions[0].code) {
+            setPromotionCode(availablePromotions[0].code);
+          } else {
+            setPromotionCode(''); // Clear if no available promotions
+          }
+        } else {
+          // If the response is not successful, clear the promotion code
+          setPromotionCode('');
+          setAvailablePromotions([]);
+          setPromotions([]);
+        }
+      } catch (error) {
+        console.error('Error fetching promotions after removal:', error);
+        // If there's an error, clear the promotion code
+        setPromotionCode('');
+        setAvailablePromotions([]);
+        setPromotions([]);
+      }
+    } else {
+      setPromotionCode(''); // Clear if no items in cart
+      setAvailablePromotions([]);
+      setPromotions([]);
+    }
+  };
+
+  // Remove applied promotion handler for single-promo behavior
+  const handleRemoveAppliedPromotion = async () => {
+    try {
+      if (currentPromo) {
+        // Remove the specific promotion
+        await promotionService.removePromotion(cart._id, currentPromo.promotion?._id || currentPromo.promotion, token);
+      } else {
+        // Remove all promotions as fallback
+        await promotionService.removeAllPromotions(cart._id, token);
+      }
+      await refreshCart();
+      setPromotionCode(''); // Allow entering a new code
+      setPromotionError(null);
+      setCheckoutMessage({
+        type: 'success',
+        text: 'Promotion removed successfully.'
+      });
+      setTimeout(() => setCheckoutMessage(null), 4000);
+    } catch (err) {
+      console.error('Failed removing promotion:', err);
+      setCheckoutMessage({ type: 'error', text: 'Failed to remove promotion.' });
+    }
   };
 
   const calculateDiscount = () => {
@@ -707,92 +914,57 @@ const Cart = () => {
               ))}
 
               {/* Promotions Section */}
-              {(promotions.length > 0 || appliedPromotions.length > 0) && (
+              {(availablePromotions.length > 0 || appliedPromotions.length > 0) && (
                 <div className="bg-white rounded-xl shadow-sm p-6">
                   <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                     <Tag className="w-5 h-5" style={{ color: '#8e191c' }} />
                     Promotions & Discounts
                   </h3>
 
-                  {/* Applied Promotions */}
-                  {appliedPromotions.length > 0 && (
-                    <div className="mb-4">
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">Applied Promotions:</h4>
-                      <div className="space-y-2">
-                        {appliedPromotions.map((promotion) => (
-                          <div key={promotion.id} className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-3">
-                            <div className="flex items-center gap-2">
-                              <Tag className="w-4 h-4 text-green-600" />
-                              <span className="text-sm font-medium text-green-800">
-                                {promotion.name}
-                              </span>
-                              {promotion.code && (
-                                <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
-                                  {promotion.code}
-                                </span>
-                              )}
-                            </div>
-                            <button
-                              onClick={() => handleRemovePromotion(promotion.id)}
-                              className="p-1 hover:bg-green-200 rounded-full transition-colors"
-                            >
-                              <X className="w-4 h-4 text-green-600" />
-                            </button>
-                          </div>
-                        ))}
+                  {hasAppliedPromo ? (
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-green-50 border border-green-200">
+                      <div className="text-sm">
+                        <div className="font-semibold text-green-700">
+                          {currentPromo.promotion?.name || currentPromo.name}
+                        </div>
+                        <div className="text-green-600">
+                          Code: {currentPromo.code}
+                        </div>
                       </div>
+                      <button
+                        onClick={handleRemoveAppliedPromotion}
+                        className="flex items-center gap-1 px-3 py-1 rounded-md border text-sm hover:bg-gray-50"
+                      >
+                        <X className="w-4 h-4" /> Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={promotionCode}
+                        onChange={(e) => setPromotionCode(e.target.value)}
+                        placeholder="Enter promotion code"
+                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button
+                        onClick={handleApplyPromotion}
+                        disabled={!promotionCode.trim() || applyingPromotion}
+                        className="px-4 py-2 text-white rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors hover:opacity-90"
+                        style={{ backgroundColor: '#8e191c' }}
+                      >
+                        {applyingPromotion ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          'Apply'
+                        )}
+                      </button>
                     </div>
                   )}
-
-                  {/* Promotion Code Input */}
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={promotionCode}
-                      onChange={(e) => setPromotionCode(e.target.value)}
-                      placeholder="Enter promotion code"
-                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <button
-                      onClick={handleApplyPromotion}
-                      disabled={!promotionCode.trim() || applyingPromotion}
-                      className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {applyingPromotion ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        'Apply'
-                      )}
-                    </button>
-                  </div>
 
                   {promotionError && (
                     <p className="text-red-600 text-sm mt-2">{promotionError}</p>
                   )}
-
-                  {/* Available Promotions */}
-                  {/* {promotions.length > 0 && (
-                    <div className="mt-4">
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">Available Promotions:</h4>
-                      <div className="space-y-2">
-                        {promotions.slice(0, 3).map((promotion) => (
-                          <div key={promotion.id} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <h5 className="text-sm font-medium text-gray-800">{promotion.name}</h5>
-                                <p className="text-xs text-gray-600">{promotion.description}</p>
-                              </div>
-                              {promotion.code && (
-                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
-                                  {promotion.code}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )} */}
                 </div>
               )}
             </div>
