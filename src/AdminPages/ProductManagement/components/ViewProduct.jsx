@@ -15,14 +15,15 @@ import {
   FiShoppingCart,
   FiTrendingUp,
   FiClock,
-  FiMapPin
+  FiMapPin,
+  FiHeart
 } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import LoaderOverlay from '../../../components/LoaderOverlay';
 import DeleteProduct from './DeleteProduct';
 import { FaSnowflake, FaEuroSign } from 'react-icons/fa';
 
-const ViewProduct = ({ product, onBack, onDelete, onEdit, selectedPriceList = 1 }) => {
+const ViewProduct = ({ product, onBack, onDelete, onEdit, onToggleFeatured, selectedPriceList = 1 }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showImageZoom, setShowImageZoom] = useState(false);
 
@@ -265,6 +266,12 @@ const ViewProduct = ({ product, onBack, onDelete, onEdit, selectedPriceList = 1 
                   <div className="col-span-1 md:col-span-2">
                     <label className="text-sm font-medium text-gray-600 mb-3 block">Special Attributes</label>
                     <div className="flex flex-wrap gap-3">
+                      {product.featured === true && (
+                        <span className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-pink-50 to-orange-100 text-pink-700 border border-pink-200 flex items-center shadow-sm hover:shadow-md transition-all duration-200">
+                          <FiHeart className="w-4 h-4 mr-1.5" />
+                          Featured
+                        </span>
+                      )}
                       {product.frozen === 'tYES' && (
                         <span className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700 border border-blue-200 flex items-center shadow-sm hover:shadow-md transition-all duration-200">
                           <FaSnowflake className="w-4 h-4 mr-1.5" />
@@ -429,6 +436,22 @@ const ViewProduct = ({ product, onBack, onDelete, onEdit, selectedPriceList = 1 
                   >
                     <FiEdit3 className="w-5 h-5 text-white mr-2 group-hover:scale-110 transition-transform" />
                     <span className="text-white font-medium">Edit Product</span>
+                  </button>
+                  
+                  <button
+                    onClick={() => onToggleFeatured(product)}
+                    className={`w-full p-4 border rounded-xl transition-all duration-200 text-center group flex items-center justify-center ${
+                      product.featured === true
+                        ? 'bg-white border-pink-300 text-pink-700 hover:bg-pink-50 hover:border-pink-400'
+                        : 'bg-gradient-to-r from-pink-500 to-orange-500 border-pink-500/30 text-white hover:from-pink-600 hover:to-orange-600'
+                    }`}
+                  >
+                    <FiHeart className={`w-5 h-5 mr-2 group-hover:scale-110 transition-transform ${
+                      product.featured === true ? 'text-pink-600' : 'text-white'
+                    }`} />
+                    <span className="font-medium">
+                      {product.featured === true ? 'Unmark as Featured' : 'Mark as Featured'}
+                    </span>
                   </button>
                   
                   <button

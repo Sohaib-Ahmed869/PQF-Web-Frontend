@@ -35,15 +35,19 @@ const updateProduct = async (productId, data) => {
  * @param {string} productId - The product ID.
  * @param {File} imageFile - The image file to upload (optional).
  * @param {string} description - The new description (optional).
+ * @param {boolean} featured - The featured status (optional).
  * @returns {Promise}
  */
-const updateProductImageAndDescription = async (productId, imageFile, description) => {
+const updateProductImageAndDescription = async (productId, imageFile, description, featured) => {
   const formData = new FormData();
   if (imageFile) {
     formData.append('image', imageFile);
   }
   if (description !== undefined) {
     formData.append('description', description);
+  }
+  if (featured !== undefined) {
+    formData.append('featured', featured);
   }
   return updateProduct(productId, formData);
 };
@@ -78,6 +82,15 @@ const searchProducts = async (search) => {
   return { data: { data: { products } } };
 };
 
+const toggleProductFeatured = async (productId) => {
+  if (!productId || productId === 'undefined') {
+    throw new Error('toggleProductFeatured: productId is required and must be valid');
+  }
+  
+  const response = await api.put(`/products/toggle-featured/${productId}`);
+  return response;
+};
+
 const productService = {
   getAllProducts,
   getIndividualProduct,
@@ -87,6 +100,7 @@ const productService = {
   getProductsByCategory,
   getProductNameSuggestions,
   searchProducts,
+  toggleProductFeatured,
 };
 
 export default productService;

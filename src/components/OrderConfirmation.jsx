@@ -17,10 +17,30 @@ const OrderConfirmation = () => {
   const totalDiscount = orderData.totalDiscount || 0;
   const appliedPromotions = orderData.appliedPromotions || [];
   const appliedDiscounts = orderData.appliedDiscounts || [];
+  
+  // Delivery/Pickup time information - check both orderData and main state
+  const deliveryTimeSlot = orderData.deliveryTimeSlot || location.state?.deliveryTimeSlot;
+  const deliveryDate = orderData.deliveryDate || location.state?.deliveryDate;
+  const pickupTimeSlot = orderData.pickupTimeSlot || location.state?.pickupTimeSlot;
+  const pickupDate = orderData.pickupDate || location.state?.pickupDate;
+  const deliveryMethod = orderData.deliveryMethod || location.state?.deliveryMethod || 'delivery';
+  
+  // Available time slots for display
+  const timeSlots = [
+    { value: '9-12', label: '9:00 AM - 12:00 PM' },
+    { value: '12-3', label: '12:00 PM - 3:00 PM' },
+    { value: '3-6', label: '3:00 PM - 6:00 PM' },
+    { value: '6-9', label: '6:00 PM - 9:00 PM' }
+  ];
 
   const handleViewOrders = () => {
     navigate('/user/orders');
   };
+
+  // Debug: Log the data being received
+  console.log('OrderConfirmation - location.state:', location.state);
+  console.log('OrderConfirmation - orderData:', orderData);
+  console.log('OrderConfirmation - delivery info:', { deliveryMethod, deliveryTimeSlot, deliveryDate, pickupTimeSlot, pickupDate });
 
   // Calculate the total price for an item considering free quantities
   const calculateItemTotalPrice = (item) => {
@@ -173,6 +193,78 @@ const OrderConfirmation = () => {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Delivery/Pickup Time Information */}
+        {deliveryMethod === 'delivery' && (
+          <div className="bg-blue-50 rounded-lg p-4 mb-4 border border-blue-200">
+            <div className="flex items-center justify-center mb-2">
+              <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <h3 className="text-lg font-semibold text-blue-800">Delivery Time</h3>
+            </div>
+            <div className="text-center text-blue-700">
+              {deliveryDate && deliveryTimeSlot ? (
+                <>
+                  <div className="font-medium text-lg">
+                    {new Date(deliveryDate).toLocaleDateString('en-US', { 
+                      weekday: 'long', 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })}
+                  </div>
+                  <div className="text-blue-600 font-semibold text-lg mt-1">
+                    {timeSlots.find(slot => slot.value === deliveryTimeSlot)?.label}
+                  </div>
+                  <p className="text-blue-600 text-sm mt-2">
+                    We'll deliver your order during this time window
+                  </p>
+                </>
+              ) : (
+                <p className="text-blue-600 text-sm">
+                  Delivery time will be confirmed shortly
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Pickup Time Information */}
+        {deliveryMethod === 'pickup' && (
+          <div className="bg-green-50 rounded-lg p-4 mb-4 border border-green-200">
+            <div className="flex items-center justify-center mb-2">
+              <svg className="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <h3 className="text-lg font-semibold text-green-800">Pickup Time</h3>
+            </div>
+            <div className="text-center text-green-700">
+              {pickupDate && pickupTimeSlot ? (
+                <>
+                  <div className="font-medium text-lg">
+                    {new Date(pickupDate).toLocaleDateString('en-US', { 
+                      weekday: 'long', 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })}
+                  </div>
+                  <div className="text-green-600 font-semibold text-lg mt-1">
+                    {timeSlots.find(slot => slot.value === pickupTimeSlot)?.label}
+                  </div>
+                  <p className="text-green-600 text-sm mt-2">
+                    Your order will be ready for pickup during this time window
+                  </p>
+                </>
+              ) : (
+                <p className="text-green-600 text-sm">
+                  Pickup time will be confirmed shortly
+                </p>
+              )}
             </div>
           </div>
         )}

@@ -1,15 +1,121 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ShoppingCart, Heart } from 'lucide-react';
 import webService from '../../services/Website/WebService';
 import { useStore } from '../../context/StoreContext';
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import LoginModal from '../../components/LoginModal';
+
+// Editable Quantity Component
+const EditableQuantity = ({ quantity, onQuantityChange, onIncrement, onDecrement, productId }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(quantity.toString());
+  const inputRef = useRef(null);
+
+  // Reset edit value when quantity changes externally
+  useEffect(() => {
+    setEditValue(quantity.toString());
+  }, [quantity]);
+
+  // Focus input when editing starts
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  const handleQuantityClick = () => {
+    setIsEditing(true);
+    setEditValue(quantity.toString());
+  };
+
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    // Only allow numbers
+    if (/^\d*$/.test(value)) {
+      setEditValue(value);
+    }
+  };
+
+  const handleInputKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleSubmit();
+    } else if (e.key === 'Escape') {
+      handleCancel();
+    }
+  };
+
+  const handleSubmit = () => {
+    const newQuantity = parseInt(editValue) || 0;
+    if (newQuantity >= 0 && newQuantity <= 999) { // Set reasonable limits
+      onQuantityChange(newQuantity);
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setEditValue(quantity.toString());
+    setIsEditing(false);
+  };
+
+  const handleInputBlur = () => {
+    handleSubmit();
+  };
+
+  return (
+    <div className="flex items-center gap-2 w-full py-2 px-4 rounded-lg font-medium" style={{ backgroundColor: '#8e191c', color: 'white' }}>
+      <button
+        onClick={onDecrement}
+        className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+      >
+        -
+      </button>
+      
+      {isEditing ? (
+        <input
+          ref={inputRef}
+          type="text"
+          value={editValue}
+          onChange={handleInputChange}
+          onKeyDown={handleInputKeyDown}
+          onBlur={handleInputBlur}
+          className="w-12 text-center bg-white/20 rounded px-1 text-white placeholder-white/70 border border-white/30 focus:outline-none focus:border-white"
+          maxLength="3"
+          placeholder="0"
+        />
+      ) : (
+        <span 
+          className="w-12 text-center font-medium cursor-pointer hover:bg-white/10 rounded px-1 py-1 transition-colors"
+          onClick={handleQuantityClick}
+          title="Click to edit quantity"
+        >
+          {quantity}
+        </span>
+      )}
+      
+      <button
+        onClick={onIncrement}
+        className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+      >
+        +
+      </button>
+    </div>
+  );
+};
 
 // Simple Product Card Component
-const ProductCard = React.memo(({ product, onAddToCart, onToggleWishlist, index, isInWishlist }) => {
+const ProductCard = React.memo(({ product, onAddToCart, onToggleWishlist, index, isInWishlist, triggerLoginModal }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const { getCartItem, updateCartItem, removeFromCart } = useCart();
+  const { isAuthenticated } = useAuth();
+  
+  // Get cart item quantity
+  const cartItem = getCartItem(product.id);
+  const quantityInCart = cartItem ? cartItem.quantity : 0;
   
   return (
     <div 
@@ -44,6 +150,10 @@ const ProductCard = React.memo(({ product, onAddToCart, onToggleWishlist, index,
           <button
             onClick={(e) => {
               e.stopPropagation();
+              if (!isAuthenticated()) {
+                triggerLoginModal();
+                return;
+              }
               onToggleWishlist(product.id); // Pass only the ID
             }}
             className={`
@@ -69,53 +179,85 @@ const ProductCard = React.memo(({ product, onAddToCart, onToggleWishlist, index,
           
           {/* Price */}
           <div className="text-center mb-3">
-            {/* Main Price */}
-            <span className="text-sm font-medium" style={{ color: '#8e191c' }}>
-              AED {(() => {
-                if (product.prices && product.prices.length > 0) {
-                  const mainPrice = product.prices.find(p => p.PriceList === 1);
-                  return mainPrice ? mainPrice.Price.toFixed(2) : '0.00';
-                }
-                return product.price ? product.price.toFixed(2) : '0.00';
-              })()}
-            </span>
-          </div>
-          
-          {/* Add to Cart Button */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsAddingToCart(true);
-              onAddToCart(product);
-              setTimeout(() => setIsAddingToCart(false), 1000);
-            }}
-            disabled={isAddingToCart}
-            className={`
-              w-full py-2 px-4 rounded-lg font-medium transition-all duration-300
-              ${isAddingToCart 
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                : 'text-white hover:scale-105'
-              }
-            `}
-            style={{
-              backgroundColor: isAddingToCart ? undefined : '#8e191c',
-              ':hover': {
-                backgroundColor: isAddingToCart ? undefined : '#7a1518'
-              }
-            }}
-          >
-            {isAddingToCart ? (
-              <span className="flex items-center justify-center">
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                Adding...
-              </span>
-            ) : (
-              <span className="flex items-center justify-center">
-                <ShoppingCart className="w-4 h-4 mr-2" />
-                Add to Cart
+            {/* Main Price - Only show if authenticated */}
+            {isAuthenticated() && (
+              <span className="text-sm font-medium" style={{ color: '#8e191c' }}>
+                AED {(() => {
+                  if (product.prices && product.prices.length > 0) {
+                    const mainPrice = product.prices.find(p => p.PriceList === 1);
+                    return mainPrice ? mainPrice.Price.toFixed(2) : '0.00';
+                  }
+                  return product.price ? product.price.toFixed(2) : '0.00';
+                })()}
               </span>
             )}
-          </button>
+          </div>
+          
+          {/* Add to Cart Section */}
+          <div className="flex items-center gap-2">
+            {quantityInCart > 0 ? (
+              <div onClick={(e) => e.stopPropagation()}>
+                <EditableQuantity
+                  quantity={quantityInCart}
+                  onQuantityChange={(newQuantity) => {
+                    if (newQuantity === 0) {
+                      removeFromCart(product.id);
+                    } else {
+                      updateCartItem(product.id, newQuantity);
+                    }
+                  }}
+                  onIncrement={() => updateCartItem(product.id, quantityInCart + 1)}
+                  onDecrement={() => {
+                    if (quantityInCart === 1) {
+                      removeFromCart(product.id);
+                    } else {
+                      updateCartItem(product.id, quantityInCart - 1);
+                    }
+                  }}
+                  productId={product.id}
+                />
+              </div>
+            ) : (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!isAuthenticated()) {
+                    triggerLoginModal();
+                    return;
+                  }
+                  setIsAddingToCart(true);
+                  onAddToCart(product);
+                  setTimeout(() => setIsAddingToCart(false), 1000);
+                }}
+                disabled={isAddingToCart}
+                className={`
+                  w-full py-2 px-4 rounded-lg font-medium transition-all duration-300
+                  ${isAddingToCart 
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                    : 'text-white hover:scale-105'
+                  }
+                `}
+                style={{
+                  backgroundColor: isAddingToCart ? undefined : '#8e191c',
+                  ':hover': {
+                    backgroundColor: isAddingToCart ? undefined : '#7a1518'
+                  }
+                }}
+              >
+                {isAddingToCart ? (
+                  <span className="flex items-center justify-center">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                    Adding...
+                  </span>
+                ) : (
+                  <span className="flex items-center justify-center">
+                    <ShoppingCart className="w-4 h-4 mr-2" />
+                    Add to Cart
+                  </span>
+                )}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -128,11 +270,16 @@ const FeatureProduct = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   
   const { selectedStore } = useStore();
   const { addToCart } = useCart();
   const { addToWishlist, removeFromWishlist, toggleWishlist, isInWishlist } = useWishlist();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+
+  // Function to trigger login modal from child
+  const triggerLoginModal = () => setShowLoginModal(true);
 
   // Fallback products
   const fallbackProducts = useMemo(() => [
@@ -289,13 +436,7 @@ const FeatureProduct = () => {
   }, [selectedStore, fallbackProducts]);
 
   const handleAddToCart = (product) => {
-    addToCart({
-      id: product.id,
-      name: product.ItemName,
-      price: product.price,
-      image: product.image,
-      quantity: 1
-    });
+    addToCart(product.id, 1);
   };
 
   // Fixed wishlist toggle handler
@@ -368,6 +509,7 @@ const FeatureProduct = () => {
               onToggleWishlist={handleToggleWishlist}
               isInWishlist={isInWishlist(product.id)}
               index={index}
+              triggerLoginModal={triggerLoginModal}
             />
           ))}
         </div>
@@ -400,6 +542,13 @@ const FeatureProduct = () => {
           </button>
         </div>
       </div>
+      
+      {/* Login Modal */}
+      <LoginModal
+        show={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        onLogin={() => { setShowLoginModal(false); navigate('/login'); }}
+      />
     </div>
   );
 };

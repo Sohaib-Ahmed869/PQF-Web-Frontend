@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ShoppingCart, Heart, Eye, Star, ChevronLeft, ChevronRight, Filter, Grid, List, Snowflake, Loader2, X, AlertCircle, Search } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import webService from '../../services/Website/WebService';
@@ -70,6 +70,199 @@ const styleSheet = document.createElement('style');
 styleSheet.textContent = fadeInStyle;
 document.head.appendChild(styleSheet);
 
+// Editable Quantity Components
+const EditableQuantity = ({ quantity, onQuantityChange, onIncrement, onDecrement, productId }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(quantity.toString());
+  const inputRef = useRef(null);
+
+  // Reset edit value when quantity changes externally
+  useEffect(() => {
+    setEditValue(quantity.toString());
+  }, [quantity]);
+
+  // Focus input when editing starts
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  const handleQuantityClick = () => {
+    setIsEditing(true);
+    setEditValue(quantity.toString());
+  };
+
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    // Only allow numbers
+    if (/^\d*$/.test(value)) {
+      setEditValue(value);
+    }
+  };
+
+  const handleInputKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleSubmit();
+    } else if (e.key === 'Escape') {
+      handleCancel();
+    }
+  };
+
+  const handleSubmit = () => {
+    const newQuantity = parseInt(editValue) || 0;
+    if (newQuantity >= 0 && newQuantity <= 999) { // Set reasonable limits
+      onQuantityChange(newQuantity);
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setEditValue(quantity.toString());
+    setIsEditing(false);
+  };
+
+  const handleInputBlur = () => {
+    handleSubmit();
+  };
+
+  return (
+    <div className="flex items-center gap-2 w-full py-2 px-4 rounded-lg font-medium" style={{ backgroundColor: '#8e191c', color: 'white' }}>
+      <button
+        onClick={onDecrement}
+        className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+      >
+        -
+      </button>
+      
+      {isEditing ? (
+        <input
+          ref={inputRef}
+          type="text"
+          value={editValue}
+          onChange={handleInputChange}
+          onKeyDown={handleInputKeyDown}
+          onBlur={handleInputBlur}
+          className="w-12 text-center bg-white/20 rounded px-1 text-white placeholder-white/70 border border-white/30 focus:outline-none focus:border-white"
+          maxLength="3"
+          placeholder="0"
+        />
+      ) : (
+        <span 
+          className="w-12 text-center font-medium cursor-pointer hover:bg-white/10 rounded px-1 py-1 transition-colors"
+          onClick={handleQuantityClick}
+          title="Click to edit quantity"
+        >
+          {quantity}
+        </span>
+      )}
+      
+      <button
+        onClick={onIncrement}
+        className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+      >
+        +
+      </button>
+    </div>
+  );
+};
+
+// For the list view version (smaller)
+const EditableQuantitySmall = ({ quantity, onQuantityChange, onIncrement, onDecrement, productId }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(quantity.toString());
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    setEditValue(quantity.toString());
+  }, [quantity]);
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  const handleQuantityClick = () => {
+    setIsEditing(true);
+    setEditValue(quantity.toString());
+  };
+
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    if (/^\d*$/.test(value)) {
+      setEditValue(value);
+    }
+  };
+
+  const handleInputKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleSubmit();
+    } else if (e.key === 'Escape') {
+      handleCancel();
+    }
+  };
+
+  const handleSubmit = () => {
+    const newQuantity = parseInt(editValue) || 0;
+    if (newQuantity >= 0 && newQuantity <= 999) {
+      onQuantityChange(newQuantity);
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setEditValue(quantity.toString());
+    setIsEditing(false);
+  };
+
+  const handleInputBlur = () => {
+    handleSubmit();
+  };
+
+  return (
+    <div className="flex items-center gap-2 py-1.5 px-2 rounded-lg font-medium" style={{ backgroundColor: '#8e191c', color: 'white' }}>
+      <button
+        onClick={onDecrement}
+        className="w-4 h-4 bg-white/20 rounded-full flex items-center justify-center text-xs hover:bg-white/30 transition-colors"
+      >
+        -
+      </button>
+      
+      {isEditing ? (
+        <input
+          ref={inputRef}
+          type="text"
+          value={editValue}
+          onChange={handleInputChange}
+          onKeyDown={handleInputKeyDown}
+          onBlur={handleInputBlur}
+          className="w-12 text-center bg-white/20 rounded px-1 text-white text-xs placeholder-white/70 border border-white/30 focus:outline-none focus:border-white"
+          maxLength="3"
+          placeholder="0"
+        />
+      ) : (
+        <span 
+          className="w-12 text-center text-xs font-medium cursor-pointer hover:bg-white/10 rounded px-1 transition-colors"
+          onClick={handleQuantityClick}
+          title="Click to edit quantity"
+        >
+          {quantity}
+        </span>
+      )}
+      
+      <button
+        onClick={onIncrement}
+        className="w-4 h-4 bg-white/20 rounded-full flex items-center justify-center text-xs hover:bg-white/30 transition-colors"
+      >
+        +
+      </button>
+    </div>
+  );
+};
+
 // Custom Dropdown Component
 const CustomSelect = ({ value, onChange, options, placeholder, className = "" }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -79,6 +272,18 @@ const CustomSelect = ({ value, onChange, options, placeholder, className = "" })
     const selected = options.find(opt => opt.value === value);
     setSelectedLabel(selected ? selected.label : placeholder);
   }, [value, options, placeholder]);
+
+  // Handle clicking outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isOpen && !event.target.closest('.relative')) {
+        setIsOpen(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
 
   return (
     <div className={`relative ${className}`}>
@@ -238,43 +443,37 @@ const ProductCard = React.memo(({ product, onAddToCart, onToggleWishlist, index,
           
           {/* Price */}
           <div className="text-center mb-3">
-            {/* Main Price */}
-            <span className="text-sm font-medium" style={{ color: '#8e191c' }}>
-              {isAuthenticated() ? (
-                `AED ${price ? price.toFixed(2) : '0.00'}`
-              ) : (
-                'Login to see price'
-              )}
-            </span>
+            {/* Main Price - Only show if authenticated */}
+            {isAuthenticated() && (
+              <span className="text-sm font-medium" style={{ color: '#8e191c' }}>
+                {`AED ${price ? price.toFixed(2) : '0.00'}`}
+              </span>
+            )}
           </div>
           
           {/* Add to Cart Section */}
           <div className="flex items-center gap-2">
             {quantityInCart > 0 ? (
-              <div className="flex items-center gap-2 w-full py-2 px-4 rounded-lg font-medium" style={{ backgroundColor: '#8e191c', color: 'white' }}>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
+              <div onClick={(e) => e.stopPropagation()}>
+                <EditableQuantity
+                  quantity={quantityInCart}
+                  onQuantityChange={(newQuantity) => {
+                    if (newQuantity === 0) {
+                      removeFromCart(product._id || product.id);
+                    } else {
+                      updateCartItem(product._id || product.id, newQuantity);
+                    }
+                  }}
+                  onIncrement={() => addToCart(product._id || product.id, 1)}
+                  onDecrement={() => {
                     if (quantityInCart === 1) {
                       removeFromCart(product._id || product.id);
                     } else {
                       updateCartItem(product._id || product.id, quantityInCart - 1);
                     }
                   }}
-                  className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center"
-                >
-                  -
-                </button>
-                <span className="flex-1 text-center font-medium">{quantityInCart}</span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    addToCart(product._id || product.id, 1);
-                  }}
-                  className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center"
-                >
-                  +
-                </button>
+                  productId={product._id || product.id}
+                />
               </div>
             ) : (
               <button
@@ -425,43 +624,37 @@ const ProductListCard = React.memo(({ product, onAddToCart, onToggleWishlist, in
                 
                 {/* Price */}
                 <div className="mb-2">
-                  <span className="text-lg font-bold" style={{ color: '#8e191c' }}>
-                    {isAuthenticated() ? (
-                      `AED ${price ? price.toFixed(2) : '0.00'}`
-                    ) : (
-                      'Login to see price'
-                    )}
-                  </span>
+                  {isAuthenticated() && (
+                    <span className="text-lg font-bold" style={{ color: '#8e191c' }}>
+                      {`AED ${price ? price.toFixed(2) : '0.00'}`}
+                    </span>
+                  )}
                 </div>
               </div>
               
               {/* Add to Cart Section */}
               <div className="flex items-center ml-3">
                 {quantityInCart > 0 ? (
-                  <div className="flex items-center gap-2 py-1.5 px-2 rounded-lg font-medium" style={{ backgroundColor: '#8e191c', color: 'white' }}>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <EditableQuantitySmall
+                      quantity={quantityInCart}
+                      onQuantityChange={(newQuantity) => {
+                        if (newQuantity === 0) {
+                          removeFromCart(product._id || product.id);
+                        } else {
+                          updateCartItem(product._id || product.id, newQuantity);
+                        }
+                      }}
+                      onIncrement={() => addToCart(product._id || product.id, 1)}
+                      onDecrement={() => {
                         if (quantityInCart === 1) {
                           removeFromCart(product._id || product.id);
                         } else {
                           updateCartItem(product._id || product.id, quantityInCart - 1);
                         }
                       }}
-                      className="w-4 h-4 bg-white/20 rounded-full flex items-center justify-center text-xs"
-                    >
-                      -
-                    </button>
-                    <span className="text-xs font-medium">{quantityInCart}</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        addToCart(product._id || product.id, 1);
-                      }}
-                      className="w-4 h-4 bg-white/20 rounded-full flex items-center justify-center text-xs"
-                    >
-                      +
-                    </button>
+                      productId={product._id || product.id}
+                    />
                   </div>
                 ) : (
                   <button
@@ -1202,13 +1395,11 @@ const ProductListPage = () => {
                           {productName}
                         </span>
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-xs" style={{ color: '#8e191c' }}>
-                            {isAuthenticated() ? (
-                              `AED ${productPrice.toFixed(2)}`
-                            ) : (
-                              'Login to see price'
-                            )}
-                          </span>
+                          {isAuthenticated() && (
+                            <span className="font-medium text-xs" style={{ color: '#8e191c' }}>
+                              {`AED ${productPrice.toFixed(2)}`}
+                            </span>
+                          )}
                           <span className="font-medium">×{item.quantity}</span>
                         </div>
                       </div>
@@ -1216,9 +1407,9 @@ const ProductListPage = () => {
                   })}
                 </div>
                 <div className="flex justify-between items-center pt-3 border-t border-gray-200">
-                  <span className="font-bold text-gray-800">
-                    {isAuthenticated() ? (
-                      `Total: AED ${cart.items.reduce((total, item) => {
+                  {isAuthenticated() && (
+                    <span className="font-bold text-gray-800">
+                      {`Total: AED ${cart.items.reduce((total, item) => {
                         let itemPrice = 0;
                         
                         // Use item.price if available and valid
@@ -1242,11 +1433,9 @@ const ProductListPage = () => {
                         }
                         
                         return total + (itemPrice * item.quantity);
-                      }, 0).toFixed(2)}`
-                    ) : (
-                      'Login to see total'
-                    )}
-                  </span>
+                      }, 0).toFixed(2)}`}
+                    </span>
+                  )}
                   <button 
                     onClick={() => navigate('/cart')}
                     className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors"

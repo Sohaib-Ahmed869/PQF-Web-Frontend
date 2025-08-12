@@ -14,6 +14,69 @@ import { useAuth } from '../context/AuthContext';
 // Initialize Stripe - replace with your actual publishable key
 const stripePromise = loadStripe("pk_test_51R4HwEP1U1i66wzc0CML1t20v7wPQrvuXPKrrXpnBJ0XVdIEDHuPazuL1ZPIVlQcbk4fSpCTrjla8nsMFog708Vl0031BNIGKo");
 
+// Custom Dropdown Component (same as ProductList.jsx)
+const CustomSelect = ({ value, onChange, options, placeholder, className = "" }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedLabel, setSelectedLabel] = useState('');
+  
+  useEffect(() => {
+    const selected = options.find(opt => opt.value === value);
+    setSelectedLabel(selected ? selected.label : placeholder);
+  }, [value, options, placeholder]);
+
+  // Handle clicking outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isOpen && !event.target.closest('.relative')) {
+        setIsOpen(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  return (
+    <div className={`relative ${className}`}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-4 py-4 rounded-xl border-2 border-gray-200 bg-white text-gray-800 font-medium focus:outline-none focus:ring-4 focus:ring-[#8e191c]/20 focus:border-[#8e191c] transition-all duration-300 shadow-sm text-left flex items-center justify-between"
+      >
+        <span>{selectedLabel}</span>
+        <svg 
+          className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} 
+          fill="none" 
+          stroke="#8e191c" 
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      
+      {isOpen && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 max-h-60 overflow-y-auto">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => {
+                onChange(option.value);
+                setIsOpen(false);
+              }}
+              className={`w-full px-4 py-3 text-left hover:bg-[#8e191c] hover:text-white transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl ${
+                value === option.value ? 'bg-[#8e191c] text-white' : 'text-gray-800'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Stripe Card Input Component
 const StripeCardInput = ({ onChange }) => {
   const stripe = useStripe();
@@ -101,6 +164,25 @@ const CheckoutPageContent = () => {
   const [cardErrors, setCardErrors] = useState(null);
   const [cardComplete, setCardComplete] = useState(false);
   const [isStripeReady, setIsStripeReady] = useState(false);
+  
+  // Helper function to get current time slot
+  const getCurrentTimeSlot = () => {
+    const now = new Date();
+    const hour = now.getHours();
+    
+    if (hour >= 9 && hour < 12) return '9-12';
+    if (hour >= 12 && hour < 15) return '12-3';
+    if (hour >= 15 && hour < 18) return '3-6';
+    if (hour >= 18 && hour < 21) return '6-9';
+    return '9-12'; // Default to morning if outside business hours
+  };
+  
+  // Helper function to get current date in YYYY-MM-DD format
+  const getCurrentDate = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  };
+  
   const [formState, setFormState] = useState({
     email: "",
     firstName: "",
@@ -122,6 +204,13 @@ const CheckoutPageContent = () => {
     },
     notes: ""
   });
+  
+  // Add delivery/pickup date and time state
+  const [deliveryDate, setDeliveryDate] = useState(getCurrentDate());
+  const [deliveryTimeSlot, setDeliveryTimeSlot] = useState(getCurrentTimeSlot());
+  const [pickupDate, setPickupDate] = useState(getCurrentDate());
+  const [pickupTimeSlot, setPickupTimeSlot] = useState(getCurrentTimeSlot());
+  
   const [sameAsShipping, setSameAsShipping] = useState(true);
   // Add state for payment method
   const [paymentMethod, setPaymentMethod] = useState('card'); // 'card', 'cash', 'cheque', 'bank_transfer'
@@ -133,7 +222,7 @@ const CheckoutPageContent = () => {
   // Add state for recurring orders
   const [orderFrequency, setOrderFrequency] = useState('one-time'); // 'one-time' or 'recurring'
   const [recurringOptions, setRecurringOptions] = useState({
-    frequency: 'weekly', // 'weekly', 'bi-weekly', 'monthly', 'quarterly'
+    frequency: 'weekly', 
   });
 
   // No need to calculate end date since we're charging monthly on the same date
@@ -743,6 +832,11 @@ const CheckoutPageContent = () => {
         setupIntentId: orderFrequency === 'recurring' && paymentMethod === 'card' ? (setupIntentId || null) : undefined,
         stripePaymentMethodId: orderFrequency === 'recurring' && paymentMethod === 'card' ? (paymentConfirmed && setupIntentId ? 'payment_method_confirmed' : null) : undefined,
         requiresSetup: orderFrequency === 'recurring' && paymentMethod === 'card' ? requiresSetup : undefined,
+        // Add delivery/pickup date and time
+        deliveryTimeSlot: deliveryMethod === 'delivery' ? deliveryTimeSlot : undefined,
+        deliveryDate: deliveryMethod === 'delivery' ? deliveryDate : undefined,
+        pickupTimeSlot: deliveryMethod === 'pickup' ? pickupTimeSlot : undefined,
+        pickupDate: deliveryMethod === 'pickup' ? pickupDate : undefined,
       };
 
       // Debug: Log the final order data being sent
@@ -845,6 +939,11 @@ const CheckoutPageContent = () => {
           estimatedDelivery: orderRes.estimatedDelivery,
           orderFrequency: orderFrequency,
           recurringOptions: orderFrequency === 'recurring' ? recurringOptions : undefined,
+          // Add delivery/pickup date and time
+          deliveryTimeSlot: deliveryMethod === 'delivery' ? deliveryTimeSlot : undefined,
+          deliveryDate: deliveryMethod === 'delivery' ? deliveryDate : undefined,
+          pickupTimeSlot: deliveryMethod === 'pickup' ? pickupTimeSlot : undefined,
+          pickupDate: deliveryMethod === 'pickup' ? pickupDate : undefined,
           // Enhanced order data with promotion information
           orderData: {
             originalTotal: totals.originalTotal,
@@ -983,7 +1082,7 @@ const CheckoutPageContent = () => {
     }
     
     const totalAmount = totals.totalPrice; // Charge per order for recurring orders
-    const amount = `AED${totalAmount.toFixed(2)}`;
+    const amount = `AED ${totalAmount.toFixed(2)}`;
     
     switch (paymentMethod) {
       case 'card':
@@ -1295,6 +1394,63 @@ const CheckoutPageContent = () => {
                     />
                   </div>
                 </div>
+
+                {/* Delivery/Pickup Date and Time Selection */}
+                <div className="mb-8">
+                  <h3 className="text-xl font-bold text-black mb-4 flex items-center">
+                    <FaCalendarAlt className="mr-3 text-[#8e191c]" />
+                    {deliveryMethod === 'delivery' ? 'Delivery Date & Time' : 'Pickup Date & Time'}
+                  </h3>
+                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-6 shadow-sm border border-gray-200">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Date Selection */}
+                      <div>
+                        <label className="block text-sm font-semibold text-black mb-3">
+                          {deliveryMethod === 'delivery' ? 'Delivery Date' : 'Pickup Date'} *
+                        </label>
+                        <input
+                          type="date"
+                          value={deliveryMethod === 'delivery' ? deliveryDate : pickupDate}
+                          onChange={e => {
+                            if (deliveryMethod === 'delivery') {
+                              setDeliveryDate(e.target.value);
+                            } else {
+                              setPickupDate(e.target.value);
+                            }
+                          }}
+                          min={getCurrentDate()}
+                          required
+                          className="w-full px-4 py-4 bg-white border-2 border-gray-200 rounded-xl text-[#8e191c] placeholder-[#8e191c]/50 focus:border-[#8e191c] focus:ring-4 focus:ring-[#8e191c]/20 transition-all duration-300 shadow-sm"
+                        />
+                      </div>
+                      
+                      {/* Time Slot Selection */}
+                      <div>
+                        <label className="block text-sm font-semibold text-black mb-3">
+                          {deliveryMethod === 'delivery' ? 'Delivery Time' : 'Pickup Time'} *
+                        </label>
+                        <CustomSelect
+                          value={deliveryMethod === 'delivery' ? deliveryTimeSlot : pickupTimeSlot}
+                          onChange={(value) => {
+                            if (deliveryMethod === 'delivery') {
+                              setDeliveryTimeSlot(value);
+                            } else {
+                              setPickupTimeSlot(value);
+                            }
+                          }}
+                          options={[
+                            { value: '9-12', label: '9:00 AM - 12:00 PM' },
+                            { value: '12-3', label: '12:00 PM - 3:00 PM' },
+                            { value: '3-6', label: '3:00 PM - 6:00 PM' },
+                            { value: '6-9', label: '6:00 PM - 9:00 PM' }
+                          ]}
+                          placeholder="Select Time"
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 
                 <button
                   type="button"
@@ -1359,6 +1515,30 @@ const CheckoutPageContent = () => {
                       </div>
                     </>
                   )}
+                  
+                  {/* Delivery/Pickup Date and Time */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="text-lg font-semibold text-black mb-2">
+                      {deliveryMethod === 'delivery' ? 'Delivery Date & Time' : 'Pickup Date & Time'}
+                    </h3>
+                    <p className="text-black">
+                      {deliveryMethod === 'delivery' ? 'Delivery' : 'Pickup'} on{' '}
+                      {new Date(deliveryMethod === 'delivery' ? deliveryDate : pickupDate).toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })} during{' '}
+                      {(() => {
+                        const timeSlots = {
+                          '9-12': '9:00 AM - 12:00 PM',
+                          '12-3': '12:00 PM - 3:00 PM',
+                          '3-6': '3:00 PM - 6:00 PM',
+                          '6-9': '6:00 PM - 9:00 PM'
+                        };
+                        return timeSlots[deliveryMethod === 'delivery' ? deliveryTimeSlot : pickupTimeSlot];
+                      })()}
+                    </p>
+                  </div>
                   {formState.notes && (
                     <div className="bg-gray-50 rounded-lg p-4">
                       <h3 className="text-lg font-semibold text-black mb-2">Special Instructions</h3>
@@ -1433,7 +1613,7 @@ const CheckoutPageContent = () => {
                                 )}
                               </span>
                               <span className="font-semibold text-[#8e191c]">
-                                {itemTotalPrice === 0 ? 'FREE' : `AED${itemTotalPrice.toFixed(2)}`}
+                                {itemTotalPrice === 0 ? 'FREE' : `AED ${itemTotalPrice.toFixed(2)}`}
                               </span>
                             </div>
                             <div className="ml-4 mt-1 text-sm text-black">
@@ -1450,7 +1630,7 @@ const CheckoutPageContent = () => {
                     </div>
                     <div className="border-t border-[#8e191c]/30 mt-3 pt-3">
                       <div className="flex justify-between items-center text-[#8e191c] font-bold">
-                        <span>Total: AED{totals.totalPrice.toFixed(2)}</span>
+                        <span>Total: AED {totals.totalPrice.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
@@ -1667,7 +1847,7 @@ const CheckoutPageContent = () => {
                               // Mixed: some free, some paid
                               <div className="flex flex-col items-end">
                                 <span className="text-lg font-bold text-gray-800">
-                                  AED{itemTotalPrice.toFixed(2)}
+                                  AED {itemTotalPrice.toFixed(2)}
                                 </span>
                                 <span className="text-sm text-green-600 font-medium">
                                   + {freeQuantity} FREE
@@ -1681,7 +1861,7 @@ const CheckoutPageContent = () => {
                             ) : (
                               // Regular item with no free quantities
                               <span className="text-lg font-bold text-gray-800">
-                                AED{itemTotalPrice.toFixed(2)}
+                                AED {itemTotalPrice.toFixed(2)}
                               </span>
                             )}
                           </div>
@@ -1695,14 +1875,14 @@ const CheckoutPageContent = () => {
               <div className="border-t-2 border-gray-200 pt-4 space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-700 font-semibold">Subtotal</span>
-                  <span className="text-black font-bold text-lg">AED{totals.originalTotal.toFixed(2)}</span>
+                  <span className="text-black font-bold text-lg">AED {totals.originalTotal.toFixed(2)}</span>
                 </div>
                 
                 {/* Show discount if any */}
                 {totals.totalDiscount > 0 && (
                   <div className="flex justify-between items-center text-green-600">
                     <span className="font-semibold">Discount</span>
-                    <span className="font-bold text-lg">-AED{totals.totalDiscount.toFixed(2)}</span>
+                    <span className="font-bold text-lg">-AED {totals.totalDiscount.toFixed(2)}</span>
                   </div>
                 )}
                 
@@ -1723,7 +1903,7 @@ const CheckoutPageContent = () => {
                       <div className="flex items-center justify-between">
                         <span className="text-[#8e191c]/80 text-sm">Per Order:</span>
                         <span className="text-[#8e191c] font-bold text-lg">
-                          AED{totals.totalPrice.toFixed(2)}
+                          AED {totals.totalPrice.toFixed(2)}
                         </span>
                       </div>
                     </div>
@@ -1734,7 +1914,7 @@ const CheckoutPageContent = () => {
                   <div className="flex justify-between items-center">
                     <span className="text-black font-bold text-xl">Total</span>
                     <span className="text-[#8e191c] font-bold text-2xl">
-                      AED{totals.totalPrice.toFixed(2)}
+                      AED {totals.totalPrice.toFixed(2)}
                     </span>
                   </div>
                   {orderFrequency === 'recurring' && (
@@ -1742,7 +1922,7 @@ const CheckoutPageContent = () => {
                       <div className="flex items-center">
                         <div className="w-2 h-2 bg-[#8e191c]/60 rounded-full mr-2"></div>
                         <span className="text-xs text-[#8e191c]/80 font-medium">
-                          You will be charged AED{totals.totalPrice.toFixed(2)} every {recurringOptions.frequency.replace('-', ' ')}
+                          You will be charged AED {totals.totalPrice.toFixed(2)} every {recurringOptions.frequency.replace('-', ' ')}
                         </span>
                       </div>
                     </div>

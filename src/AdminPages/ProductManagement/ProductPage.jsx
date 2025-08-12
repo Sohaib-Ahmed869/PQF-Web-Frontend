@@ -14,7 +14,8 @@ import {
   FiEye,
   FiTrash2,
   FiDollarSign,
-  FiShoppingCart
+  FiShoppingCart,
+  FiHeart
 } from 'react-icons/fi';
 import { FaEuroSign, FaSnowflake } from 'react-icons/fa';
 
@@ -31,7 +32,7 @@ const ProductPage = () => {
     total: 0,
     frozen: 0,
     inStock: 0,
-    totalValue: 0
+    totalValue: 0,
   });
 
   useEffect(() => {
@@ -167,12 +168,23 @@ const ProductPage = () => {
     setShowDeleteModal(true);
   };
 
+  const handleToggleFeatured = async (product) => {
+    try {
+      await productService.toggleProductFeatured(product._id);
+      toast.success(`Product ${product.featured ? 'unmarked as featured' : 'marked as featured'} successfully!`);
+      fetchProducts(); // Refresh the products list
+    } catch (error) {
+      console.error('Error toggling featured status:', error);
+      toast.error('Failed to update featured status');
+    }
+  };
+
   const renderContent = () => {
     switch (view) {
       case 'edit':
         return <EditProduct product={selectedProduct} onBack={handleBack} onSuccess={handleProductSuccess} />;
       case 'view':
-        return <ViewProduct product={selectedProduct} onBack={handleBack} onEdit={(product) => { setSelectedProduct(product); setView('edit'); }} onDelete={deleteProduct} />;
+        return <ViewProduct product={selectedProduct} onBack={handleBack} onEdit={(product) => { setSelectedProduct(product); setView('edit'); }} onDelete={deleteProduct} onToggleFeatured={handleToggleFeatured} />;
       default:
         return (
           <ProductList

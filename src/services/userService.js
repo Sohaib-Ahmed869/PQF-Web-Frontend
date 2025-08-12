@@ -1,70 +1,103 @@
 import api from './api';
 
 class UserService {
-  async register(userData) {
-    // Check if userData is FormData (for file uploads)
+  // CUSTOMER REGISTRATION - Single step
+  async registerCustomer(userData) {
+    return api.post('/users/register/customer', userData);
+  }
+
+  // BUSINESS REGISTRATION - Single API call with all data and files
+  async registerBusiness(userData) {
+    // Business registration always uses FormData for file uploads
+    console.log('UserService - registerBusiness called with:', userData);
+    
+    // Log FormData contents for debugging
     if (userData instanceof FormData) {
-      return api.post('/users/register', userData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      console.log('FormData contents:');
+      for (let [key, value] of userData.entries()) {
+        if (value instanceof File) {
+          console.log(`${key}:`, value.name, 'size:', value.size, 'type:', value.type);
+        } else {
+          console.log(`${key}:`, value);
+        }
+      }
     }
-    // Regular JSON data
-    return api.post('/users/register', userData);
+    
+    return api.post('/users/register/business', userData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
   }
 
-  async login(credentials) {
-    return api.post('/users/login', credentials);
+  // SUPER ADMIN REGISTRATION
+  async registerSuperAdmin(userData) {
+    return api.post('/users/register/super-admin', userData);
   }
 
-  async getProfile() {
-    return api.get('/users/getProfile');
-  }
-
-  async updateProfile(profileData) {
-    return api.put('/users/updateProfile', profileData);
-  }
-
-  async getAllUsers(params = {}) {
-    return api.get('/users/getAllUsers', { params });
-  }
-
-  async getUserById(userId) {
-    return api.get(`/users/getIndividual/${userId}`);
-  }
-
-  async updateUserStatus(userId, status) {
-    return api.put(`/users/${userId}/status`, { status });
-  }
-
-  async deleteUser(userId) {
-    return api.delete(`/users/delete/${userId}`);
-  }
-
+  // ADMIN CREATION - By Super Admin
   async createAdmin(adminData) {
     return api.post('/users/create-admin', adminData);
   }
 
-  async getAdmins(params = {}) {
-    return api.get('/users/getAdmins', { params });
+  // LOGIN
+  async login(credentials) {
+    return api.post('/users/login', credentials);
   }
 
-  // Address management
+  // PROFILE MANAGEMENT
+  async getProfile() {
+    return api.get('/users/profile');
+  }
+
+  async updateProfile(profileData) {
+    return api.put('/users/profile', profileData);
+  }
+
+  async updateTermsAgreement(termsData) {
+    return api.put('/users/terms-agreement', termsData);
+  }
+
+  // USER MANAGEMENT (Admin functions)
+  async getAllUsers(params = {}) {
+    return api.get('/users/users', { params });
+  }
+
+  async getUserById(userId) {
+    return api.get(`/users/users/${userId}`);
+  }
+
+  async updateUserStatus(userId, status) {
+    return api.put(`/users/users/${userId}/status`, { status });
+  }
+
+  async deleteUser(userId) {
+    return api.delete(`/users/users/${userId}`);
+  }
+
+  async getAdmins(params = {}) {
+    return api.get('/users/admins', { params });
+  }
+
+  async updateDocumentVerification(userId, verificationData) {
+    return api.put(`/users/users/${userId}/document-verification`, verificationData);
+  }
+
+  // ADDRESS MANAGEMENT
   async addAddress(addressData) {
-    return api.post('/users/Add', addressData);
+    return api.post('/users/address', addressData);
   }
 
   async getAddresses() {
-    return api.get('/users/getAll');
+    return api.get('/users/address');
   }
 
   async updateAddress(addressId, addressData) {
-    return api.put(`/users/update/${addressId}`, addressData);
+    return api.put(`/users/address/${addressId}`, addressData);
   }
 
   async deleteAddress(addressId) {
-    return api.delete(`/users/delete/address/${addressId}`);
+    return api.delete(`/users/address/${addressId}`);
   }
 
   async setDefaultAddress(type, addressId) {
@@ -78,14 +111,10 @@ class UserService {
   async getUserAddress(type) {
     const params = {};
     if (type) params.type = type;
-    return api.get('/users/address', { params });
+    return api.get('/users/address/get', { params });
   }
 
-  async updateDocumentVerification(userId, verificationData) {
-    return api.put(`/users/${userId}/document-verification`, verificationData);
-  }
-
-  // Wishlist management
+  // WISHLIST MANAGEMENT
   async addToWishlist(itemId) {
     try {
       console.log('UserService - Adding to wishlist:', itemId);
@@ -143,6 +172,7 @@ class UserService {
       };
     }
   }
+
 }
 
 const userService = new UserService();

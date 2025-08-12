@@ -416,59 +416,127 @@ const UserDocumentView = ({ userId, onClose }) => {
             </div>
           </div>
 
-          {/* Bank Statement */}
-          <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3 flex-1">
-                <div className="text-2xl">{getDocumentIcon(user.documents?.bankStatement?.filename)}</div>
-                <div className="flex-1">
-                  <h4 className="font-medium text-gray-800">Bank Statement (Last 6 Months) <span className="text-gray-400">(Optional)</span></h4>
-                  {user.documents?.bankStatement && isValidDocument(user.documents.bankStatement) ? (
-                    <>
-                      <p className="text-sm text-gray-600">{user.documents.bankStatement.filename}</p>
-                      <p className="text-xs text-gray-500 flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        Uploaded: {formatUploadDate(user.documents.bankStatement.uploadedAt)}
-                      </p>
-                    </>
-                  ) : (
-                    <p className="text-sm text-gray-500">No Bank Statement uploaded</p>
+          {/* Bank Statement - Single or Multiple Monthly */}
+          {user.documents?.bankStatement && isValidDocument(user.documents.bankStatement) ? (
+            // Single 6-month statement
+            <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 flex-1">
+                  <div className="text-2xl">{getDocumentIcon(user.documents.bankStatement.filename)}</div>
+                  <div className="flex-1">
+                    <h4 className="font-medium text-gray-800">Bank Statement (Last 6 Months) <span className="text-gray-400">(Optional)</span></h4>
+                    <p className="text-sm text-gray-600">{user.documents.bankStatement.filename}</p>
+                    <p className="text-xs text-gray-500 flex items-center gap-1">
+                      <Calendar className="w-3 h-3" />
+                      Uploaded: {formatUploadDate(user.documents.bankStatement.uploadedAt)}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {user.documents.bankStatement.verified && (
+                    <div className="flex items-center gap-1 bg-green-100 px-2 py-1 rounded-full">
+                      <Check className="w-4 h-4 text-green-600" />
+                      <span className="text-xs text-green-700 font-medium">Verified</span>
+                    </div>
                   )}
+                  <button
+                    onClick={() => openDocument(user.documents.bankStatement.url, user.documents.bankStatement.filename)}
+                    className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                    title="View Document"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                  <a
+                    href={user.documents.bankStatement.url}
+                    download
+                    className="p-2 text-green-500 hover:bg-green-50 rounded-lg transition-colors"
+                    title="Download Document"
+                  >
+                    <Download className="w-4 h-4" />
+                  </a>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                {user.documents?.bankStatement && isValidDocument(user.documents.bankStatement) ? (
-                  <>
-                    {user.documents.bankStatement.verified && (
-                      <div className="flex items-center gap-1 bg-green-100 px-2 py-1 rounded-full">
-                        <Check className="w-4 h-4 text-green-600" />
-                        <span className="text-xs text-green-700 font-medium">Verified</span>
-                      </div>
-                    )}
-                    <button
-                      onClick={() => openDocument(user.documents.bankStatement.url, user.documents.bankStatement.filename)}
-                      className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="View Document"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
-                    <a
-                      href={user.documents.bankStatement.url}
-                      download
-                      className="p-2 text-green-500 hover:bg-green-50 rounded-lg transition-colors"
-                      title="Download Document"
-                    >
-                      <Download className="w-4 h-4" />
-                    </a>
-                  </>
-                ) : (
-                  <div className="flex items-center gap-1 text-gray-400">
-                    <span className="text-xs">Optional</span>
+            </div>
+          ) : user.documents?.bankStatements && user.documents.bankStatements.length > 0 ? (
+            // Multiple monthly statements
+            <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3 flex-1">
+                  <div className="text-2xl">📊</div>
+                  <div className="flex-1">
+                    <h4 className="font-medium text-gray-800">Monthly Bank Statements <span className="text-gray-400">(Optional)</span></h4>
+                    <p className="text-sm text-gray-600">{user.documents.bankStatements.length} monthly statement(s) uploaded</p>
                   </div>
-                )}
+                </div>
+                <div className="flex items-center gap-1 text-gray-400">
+                  <span className="text-xs">Optional</span>
+                </div>
+              </div>
+              
+              {/* Monthly statements grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {user.documents.bankStatements.map((statement, index) => (
+                  <div key={index} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="text-lg">{getDocumentIcon(statement.filename)}</div>
+                        <div>
+                          <h5 className="text-sm font-medium text-gray-800">
+                            Month {statement.month?.replace('month_', '') || index + 1}
+                          </h5>
+                          <p className="text-xs text-gray-600 truncate max-w-32">{statement.filename}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {statement.verified && (
+                          <div className="flex items-center gap-1 bg-green-100 px-2 py-1 rounded-full">
+                            <Check className="w-3 h-3 text-green-600" />
+                            <span className="text-xs text-green-700 font-medium">Verified</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => openDocument(statement.url, statement.filename)}
+                        className="p-1.5 text-blue-500 hover:bg-blue-100 rounded transition-colors"
+                        title="View Document"
+                      >
+                        <Eye className="w-3 h-3" />
+                      </button>
+                      <a
+                        href={statement.url}
+                        download
+                        className="p-1.5 text-green-500 hover:bg-green-100 rounded transition-colors"
+                        title="Download Document"
+                      >
+                        <Download className="w-3 h-3" />
+                      </a>
+                      <span className="text-xs text-gray-500">
+                        {formatUploadDate(statement.uploadedAt)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          </div>
+          ) : (
+            // No bank statements
+            <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 flex-1">
+                  <div className="text-2xl">📊</div>
+                  <div className="flex-1">
+                    <h4 className="font-medium text-gray-800">Bank Statement <span className="text-gray-400">(Optional)</span></h4>
+                    <p className="text-sm text-gray-500">No Bank Statement uploaded</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 text-gray-400">
+                  <span className="text-xs">Optional</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Summary */}
@@ -484,8 +552,19 @@ const UserDocumentView = ({ userId, onClose }) => {
               <span className="text-gray-600">ID Document: {user.documents?.idDocument && isValidDocument(user.documents.idDocument) ? 'Uploaded' : 'Missing'}</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className={`w-3 h-3 rounded-full ${user.documents?.bankStatement && isValidDocument(user.documents.bankStatement) ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-              <span className="text-gray-600">Bank Statement: {user.documents?.bankStatement && isValidDocument(user.documents.bankStatement) ? 'Uploaded' : 'Not Provided'}</span>
+              <div className={`w-3 h-3 rounded-full ${
+                (user.documents?.bankStatement && isValidDocument(user.documents.bankStatement)) || 
+                (user.documents?.bankStatements && user.documents.bankStatements.length > 0) 
+                  ? 'bg-green-500' 
+                  : 'bg-gray-400'
+              }`}></div>
+              <span className="text-gray-600">Bank Statement: {
+                (user.documents?.bankStatement && isValidDocument(user.documents.bankStatement)) 
+                  ? 'Single Statement Uploaded' 
+                  : (user.documents?.bankStatements && user.documents.bankStatements.length > 0)
+                    ? `${user.documents.bankStatements.length} Monthly Statements Uploaded`
+                    : 'Not Provided'
+              }</span>
             </div>
           </div>
         </div>

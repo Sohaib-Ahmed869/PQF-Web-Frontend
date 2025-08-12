@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, ShoppingCart, MapPin, ChevronDown, Menu, Truck, MousePointer, Package, Globe, Star, Heart, Clock, Sparkles, Plus, X, Zap, Loader2, ArrowRight, Grid3X3, Layers, Store, Tag, Search } from 'lucide-react';
+import { User, ShoppingCart, MapPin, ChevronDown, Menu, Truck, MousePointer, Package, Globe, Star, Heart, Clock, Sparkles, Plus, X, Zap, Loader2, ArrowRight, Grid3X3, Layers, Store, Tag, Search, AlertTriangle } from 'lucide-react';
 
 import webService from '../services/Website/WebService';
 import logo from "../assets/PQF-22.png"
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useStore } from '../context/StoreContext';
 import StoreSelector from '../Homepage/components/StoreSelector';
@@ -20,8 +20,12 @@ const FuturisticNavbar = () => {
   const { selectedStore, setSelectedStore, orderType, deliveryAddress } = useStore();
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { wishlistItems } = useWishlist();
   const { validPromotions } = usePromotion() || { validPromotions: [] };
+
+  // Check if we're on the products page to hide search bar
+  const isOnProductsPage = location.pathname === '/products' || location.pathname.startsWith('/product/');
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState(null);
@@ -280,10 +284,24 @@ const FuturisticNavbar = () => {
     setIsMenuOpen(false);
   };
 
+  // Clear search when navigating to products page
+  useEffect(() => {
+    if (isOnProductsPage) {
+      clearSearch();
+    }
+  }, [isOnProductsPage]);
+
   // Fetch product name suggestions as user types with debouncing
   useEffect(() => {
     let active = true;
     let timeoutId;
+    
+    // Don't fetch suggestions if on products page
+    if (isOnProductsPage) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
     
     if (searchTerm && searchFocused && searchTerm.length >= 2) {
       // Debounce the API call to prevent excessive requests
@@ -314,19 +332,22 @@ const FuturisticNavbar = () => {
       active = false; 
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [searchTerm, searchFocused]);
+  }, [searchTerm, searchFocused, isOnProductsPage]);
 
   // Handle search input change
   const handleSearchInputChange = (e) => {
     const value = e.target.value;
     setSearchTerm(value);
-    setShowSuggestions(true);
+    // Only show suggestions if not on products page
+    if (!isOnProductsPage) {
+      setShowSuggestions(true);
+    }
   };
 
   // Handle search submit
   const handleSearchSubmit = () => {
     setShowSuggestions(false);
-    if (searchTerm.trim()) {
+    if (searchTerm.trim() && !isOnProductsPage) {
       navigate(`/products?search=${encodeURIComponent(searchTerm.trim())}`);
     }
   };
@@ -335,6 +356,11 @@ const FuturisticNavbar = () => {
   const handleSuggestionClick = (name) => {
     setSearchTerm(name);
     setShowSuggestions(false);
+    
+    // Don't navigate if already on products page
+    if (isOnProductsPage) {
+      return;
+    }
     
     // Try to find the product by name in the current categories/products
     const foundProduct = categories.flatMap(cat => cat.items || []).find(item => 
@@ -352,7 +378,7 @@ const FuturisticNavbar = () => {
 
   // Handle keyboard navigation
   const handleKeyDown = (e) => {
-    if (!showSuggestions || suggestions.length === 0) return;
+    if (!showSuggestions || suggestions.length === 0 || isOnProductsPage) return;
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setHighlightedIndex(prev => (prev + 1) % suggestions.length);
@@ -404,19 +430,10 @@ const FuturisticNavbar = () => {
       <div className="relative z-10">
         <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
-            {/* Logo */}
-            <div className="flex items-center group cursor-pointer flex-shrink-0" onClick={() => { clearSearch(); navigate('/'); }}>
-                <img src={logo} alt="Logo" className="w- h-16 object-contain" />
-              <div className="ml-3">
-                <div className="text-lg font-bold tracking-wider text-gray-800">PREMIER</div>
-                <div className="text-xs text-gray-600 font-semibold tracking-widest">QUALITY FOODS</div>
-              </div>
-            </div>
-
-            {/* Mobile Menu Button */}
-            <div className="md:hidden flex items-center space-x-2">
+            {/* Mobile Menu Button - Left */}
+            <div className="md:hidden flex items-center">
               <button
-                className="p-2 rounded-lg bg-white border border-gray-200 shadow-sm focus:outline-none"
+                className="p-2 rounded-lg shadow-sm focus:outline-none hover:bg-white hover:bg-opacity-20 transition-colors"
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 aria-label="Open menu"
               >
@@ -424,7 +441,30 @@ const FuturisticNavbar = () => {
               </button>
             </div>
 
+            {/* Logo - Center */}
+            <div className="flex items-center group cursor-pointer flex-shrink-0 flex-1 justify-center" onClick={() => { clearSearch(); navigate('/'); }}>
+                <img src={logo} alt="Logo" className="w- h-16 object-contain" />
+              <div className="ml-3">
+                <div className="text-lg font-bold tracking-wider text-gray-800">PREMIER</div>
+                <div className="text-xs text-gray-600 font-semibold tracking-widest">QUALITY FOODS</div>
+              </div>
+            </div>
 
+            {/* Mobile Cart Icon - Right */}
+            <div className="md:hidden flex items-center">
+              <button
+                className="relative p-2 rounded-lg shadow-sm focus:outline-none hover:bg-white hover:bg-opacity-20 transition-colors"
+                onClick={() => { clearSearch(); navigate('/cart'); }}
+                aria-label="Cart"
+              >
+                <ShoppingCart className="w-6 h-6 text-[#8e191c]" />
+                {cart?.items && cart.items.length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-[#8e191c] text-white text-xs rounded-full px-2 py-0.5 min-w-[20px] text-center font-bold">
+                    {cart.items.reduce((total, item) => total + item.quantity, 0)}
+                </span>
+                )}
+              </button>
+            </div>
 
             {/* Desktop Right Actions */}
             <div className="flex items-center space-x-4 hidden md:flex">
@@ -669,52 +709,54 @@ const FuturisticNavbar = () => {
               )}
             </div>
 
-            {/* Search Bar */}
-            <div className="ml-6 max-w-2xl" data-search-container>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search products..."
-                  value={searchTerm}
-                  onChange={handleSearchInputChange}
-                  onKeyDown={handleKeyDown}
-                  onFocus={() => { setSearchFocused(true); setShowSuggestions(true); }}
-                  onBlur={() => { setSearchFocused(false); setTimeout(() => setShowSuggestions(false), 200); }}
-                  className="w-full px-3 py-2 rounded-xl border-2 border-white bg-white text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white shadow-md text-sm"
-                />
-                <button
-                  onClick={handleSearchSubmit}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#8e191c] hover:text-[#8e191c]"
-                >
-                  <Search className="w-4 h-4" />
-                </button>
-                
-                {/* Suggestions Dropdown */}
-                {showSuggestions && searchFocused && (
-                  <div className="absolute left-0 right-0 top-full bg-white border border-gray-200 rounded-lg shadow-lg z-[1200] mt-1 max-h-60 overflow-y-auto transition-all duration-200 ease-in-out">
-                    {suggestionLoading ? (
-                      <div className="p-3 text-center text-gray-400 text-sm flex items-center justify-center gap-2">
-                        <Loader2 className="w-4 h-4 animate-spin" /> Loading...
-                      </div>
-                    ) : suggestions.length === 0 && searchTerm ? (
-                      <div className="p-3 text-center text-gray-400 text-sm">No results found</div>
-                    ) : (
-                      suggestions.map((name, idx) => (
-                        <div
-                          key={idx}
-                          className={`px-4 py-2 flex items-center gap-2 cursor-pointer text-gray-800 text-sm transition-all duration-150 ${highlightedIndex === idx ? 'bg-[#8e191c] text-white font-semibold' : 'hover:bg-[#8e191c]/10'}`}
-                          onMouseDown={() => handleSuggestionClick(name)}
-                          onMouseEnter={() => setHighlightedIndex(idx)}
-                        >
-                          <Search className={`w-4 h-4 ${highlightedIndex === idx ? 'text-white' : 'text-[#8e191c]'}`} />
-                          {name}
+            {/* Search Bar - Hidden on products page */}
+            {!isOnProductsPage && (
+              <div className="ml-6 max-w-2xl" data-search-container>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search products..."
+                    value={searchTerm}
+                    onChange={handleSearchInputChange}
+                    onKeyDown={handleKeyDown}
+                    onFocus={() => { setSearchFocused(true); setShowSuggestions(true); }}
+                    onBlur={() => { setSearchFocused(false); setTimeout(() => setShowSuggestions(false), 200); }}
+                    className="w-full px-3 py-2 rounded-xl border-2 border-white bg-white text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white shadow-md text-sm"
+                  />
+                  <button
+                    onClick={handleSearchSubmit}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#8e191c] hover:text-[#8e191c]"
+                  >
+                    <Search className="w-4 h-4" />
+                  </button>
+                  
+                  {/* Suggestions Dropdown */}
+                  {showSuggestions && searchFocused && (
+                    <div className="absolute left-0 right-0 top-full bg-white border border-gray-200 rounded-lg shadow-lg z-[1200] mt-1 max-h-60 overflow-y-auto transition-all duration-200 ease-in-out">
+                      {suggestionLoading ? (
+                        <div className="p-3 text-center text-gray-400 text-sm flex items-center justify-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" /> Loading...
                         </div>
-                      ))
-                    )}
-                  </div>
-                )}
+                      ) : suggestions.length === 0 && searchTerm ? (
+                        <div className="p-3 text-center text-gray-400 text-sm">No results found</div>
+                      ) : (
+                        suggestions.map((name, idx) => (
+                          <div
+                            key={idx}
+                            className={`px-4 py-2 flex items-center gap-2 cursor-pointer text-gray-800 text-sm transition-all duration-150 ${highlightedIndex === idx ? 'bg-[#8e191c] text-white font-semibold' : 'hover:bg-[#8e191c]/10'}`}
+                            onMouseDown={() => handleSuggestionClick(name)}
+                            onMouseEnter={() => setHighlightedIndex(idx)}
+                          >
+                            <Search className={`w-4 h-4 ${highlightedIndex === idx ? 'text-white' : 'text-[#8e191c]'}`} />
+                            {name}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
@@ -904,105 +946,163 @@ const FuturisticNavbar = () => {
         )}
       </div>
 
-      {/* Mobile Menu */}
+            {/* Mobile Menu */}
       {isMenuOpen && (
         <div className="fixed inset-0 z-[1200] bg-black/40 md:hidden" onClick={() => setIsMenuOpen(false)}>
           <div className="fixed top-0 left-0 w-4/5 max-w-xs h-full bg-white shadow-xl flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-[#8e191c] to-[#b91c1c]">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-[#8e191c] bg-opacity-20 rounded-lg flex items-center justify-center">
-                    <Grid3X3 className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-bold text-white">Categories</h2>
-                  </div>
-                </div>
-                <button onClick={() => setIsMenuOpen(false)}>
-                  <X className="w-6 h-6 text-white" />
-                </button>
-              </div>
-              {/* Language Selector (Mobile) */}
-              <div className="mb-4 flex justify-center">
-                <DeepLTranslateWidget />
-              </div>
-            </div>
 
-            <div className="flex-1 overflow-y-auto">
-              {loadingCategories ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="w-8 h-8 text-[#8e191c] animate-spin" />
-                </div>
-              ) : categoryError ? (
-                <div className="text-center py-8 px-4">
-                  <div className="w-12 h-12 bg-[#8e191c]/10 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <X className="w-6 h-6 text-[#8e191c]" />
-                  </div>
-                  <p className="text-gray-600">{categoryError}</p>
-                </div>
-              ) : allCategories.length === 0 ? (
-                <div className="text-center py-8 px-4">
-                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <Package className="w-6 h-6 text-gray-400" />
-                  </div>
-                  <p className="text-gray-600">No categories available</p>
-                </div>
-              ) : (
-                <div className="p-4">
-                  {/* Mobile Category Groups - Collapsible */}
-                  {Object.entries(groupedCategories).map(([groupName, groupCategories]) => (
-                    groupCategories.length > 0 && (
-                      <div key={groupName} className="mb-6">
-                        {/* Group Header - Collapsible */}
-                        <div
-                          className="flex items-center space-x-2 mb-3 pb-2 border-b border-gray-100 cursor-pointer select-none"
-                          onClick={() => toggleSection(groupName)}
-                        >
-                          <span className="text-lg">{getGroupIcon(groupName)}</span>
-                          <h3 className="font-bold text-gray-800 text-sm">{groupName}</h3>
-                          <span className="text-xs text-gray-500">({groupCategories.length})</span>
-                          <span className="ml-auto text-xl font-bold text-gray-400">{expandedSections[groupName] ? '–' : '+'}</span>
-                        </div>
-                        {/* Categories in Group - Only show if expanded */}
-                        {expandedSections[groupName] && (
-                          <div className="space-y-3">
-                            {groupCategories.map((category) => (
-                              <div
-                                key={category._id}
-                                className="flex items-center justify-between p-4 rounded-xl bg-white shadow border border-gray-100 hover:bg-gray-50 cursor-pointer transition-all"
-                                onClick={() => handleCategoryClick(category)}
-                              >
-                                <div className="flex items-center space-x-3">
-                                  <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                                    <span className="text-xl">{getCategoryIcon(category.name)}</span>
-                                  </div>
-                                  <div className="flex-1">
-                                    <span className="font-bold text-gray-800 text-base pl-4">{category.name} <span className='text-gray-500 font-normal'>({category.itemCount || 0})</span></span>
-                                    <div className="text-xs text-gray-500">{category.itemCount || 0} items</div>
-                                  </div>
-                                </div>
-                                <ArrowRight className="w-5 h-5 text-gray-300" />
-                              </div>
-                            ))}
-                          </div>
-                        )}
+
+            {/* Mobile Navigation Items */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {/* User Account Section - TOP */}
+              <div className="mb-6">
+                {isAuthenticated() ? (
+                  <div className="bg-gradient-to-r from-[#8e191c] to-[#b91c1c] rounded-xl p-4 text-white">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                        <User className="w-5 h-5" />
                       </div>
-                    )
-                  ))}
-                  {/* Mobile Footer Stats */}
-                  <div className="mt-6 pt-4 border-t border-gray-200">
-                    <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-lg p-4 text-white">
-                      <div className="text-center">
-                        <div className="text-red-100 text-sm mb-3">Products Available</div>
-                        <button 
-                          className="w-full bg-white text-red-600 py-2 rounded-lg font-medium hover:bg-gray-100 transition-all"
-                          onClick={() => setIsMenuOpen(false)}
-                        >
-                          Start Shopping
-                        </button>
+                      <div className="flex-1">
+                        <div className="font-semibold">{user?.name || user?.email || 'Account'}</div>
+                        <div className="text-xs opacity-80">Welcome back!</div>
                       </div>
                     </div>
                   </div>
+                ) : (
+                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                    <div className="text-center mb-3">
+                      <div className="text-sm text-gray-600 mb-2">Sign in to your account</div>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        className="flex-1 bg-[#8e191c] hover:bg-[#b91c1c] text-white py-2 px-3 rounded-lg text-sm font-medium transition-all duration-300"
+                        onClick={() => { setIsMenuOpen(false); clearSearch(); navigate('/login'); }}
+                      >
+                        Login
+                      </button>
+                      <button
+                        className="flex-1 bg-white border border-[#8e191c] text-[#8e191c] hover:bg-[#8e191c] hover:text-white py-2 px-3 rounded-lg text-sm font-medium transition-all duration-300"
+                        onClick={() => { setIsMenuOpen(false); clearSearch(); navigate('/register'); }}
+                      >
+                        Register
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Language Selector */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-[#8e191c]/10 rounded-lg flex items-center justify-center">
+                      <Globe className="w-4 h-4 text-[#8e191c]" />
+                    </div>
+                    <span className="text-sm font-medium text-gray-700">Language</span>
+                  </div>
+                  <DeepLTranslateWidget />
+                </div>
+              </div>
+
+              {/* Menu Items */}
+              <div className="space-y-3">
+                {/* Cart */}
+                <button
+                  className="w-full flex items-center space-x-3 p-4 bg-white border border-gray-200 rounded-xl hover:border-[#8e191c] hover:shadow-md transition-all duration-300"
+                  onClick={() => { setIsMenuOpen(false); clearSearch(); navigate('/cart'); }}
+                >
+                  <div className="w-10 h-10 bg-[#8e191c]/10 rounded-lg flex items-center justify-center">
+                    <ShoppingCart className="w-5 h-5 text-[#8e191c]" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-800">Cart</span>
+                  {cart?.items && cart.items.length > 0 && (
+                    <span className="ml-auto bg-orange-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center font-bold">
+                      {cart.items.reduce((total, item) => total + item.quantity, 0)}
+                    </span>
+                  )}
+                </button>
+
+                {/* Promotions */}
+                <button
+                  className="w-full flex items-center space-x-3 p-4 bg-white border border-gray-200 rounded-xl hover:border-[#8e191c] hover:shadow-md transition-all duration-300"
+                  onClick={() => { setIsMenuOpen(false); clearSearch(); navigate('/promotions'); }}
+                >
+                  <div className="w-10 h-10 bg-orange-500/10 rounded-lg flex items-center justify-center">
+                    <Tag className="w-5 h-5 text-orange-500" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-800">Promotions</span>
+                  {validPromotions?.length > 0 && (
+                    <span className="ml-auto bg-orange-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center font-bold">
+                      {validPromotions.length}
+                    </span>
+                  )}
+                </button>
+
+                {/* My Address */}
+                <button
+                  className="w-full flex items-center space-x-3 p-4 bg-white border border-gray-200 rounded-xl hover:border-[#8e191c] hover:shadow-md transition-all duration-300"
+                  onClick={() => { setIsMenuOpen(false); clearSearch(); navigate('/addresses'); }}
+                >
+                  <div className="w-10 h-10 bg-[#8e191c]/10 rounded-lg flex items-center justify-center">
+                    <MapPin className="w-5 h-5 text-[#8e191c]" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-800">My Address</span>
+                </button>
+
+                {/* My Orders */}
+                <button
+                  className="w-full flex items-center space-x-3 p-4 bg-white border border-gray-200 rounded-xl hover:border-[#8e191c] hover:shadow-md transition-all duration-300"
+                  onClick={() => { setIsMenuOpen(false); clearSearch(); navigate('/orders'); }}
+                >
+                  <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                    <Package className="w-5 h-5 text-blue-500" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-800">My Orders</span>
+                </button>
+
+                {/* My Disputes */}
+                <button
+                  className="w-full flex items-center space-x-3 p-4 bg-white border border-gray-200 rounded-xl hover:border-[#8e191c] hover:shadow-md transition-all duration-300"
+                  onClick={() => { setIsMenuOpen(false); clearSearch(); navigate('/disputes'); }}
+                >
+                  <div className="w-10 h-10 bg-yellow-500/10 rounded-lg flex items-center justify-center">
+                    <AlertTriangle className="w-5 h-5 text-yellow-500" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-800">My Disputes</span>
+                </button>
+
+                {/* My Abandoned Carts */}
+                <button
+                  className="w-full flex items-center space-x-3 p-4 bg-white border border-gray-200 rounded-xl hover:border-[#8e191c] hover:shadow-md transition-all duration-300"
+                  onClick={() => { setIsMenuOpen(false); clearSearch(); navigate('/abandoned-carts'); }}
+                >
+                  <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
+                    <ShoppingCart className="w-5 h-5 text-purple-500" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-800">My Abandoned Carts</span>
+                </button>
+
+                {/* Explore All Products */}
+                <button
+                  className="w-full flex items-center space-x-3 p-4 bg-gradient-to-r from-[#8e191c] to-[#b91c1c] rounded-xl text-white hover:from-[#b91c1c] hover:to-[#8e191c] transition-all duration-300 shadow-lg"
+                  onClick={() => { setIsMenuOpen(false); clearSearch(); navigate('/products'); }}
+                >
+                  <div className="w-10 h-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+                    <Grid3X3 className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="text-sm font-medium">Explore All Products</span>
+                </button>
+              </div>
+
+              {/* Logout Button - Bottom (Only for logged in users) */}
+              {isAuthenticated() && (
+                <div className="pt-6 border-t border-gray-100 mt-6">
+                  <button
+                    className="w-full bg-red-500 hover:bg-red-600 text-white py-3 px-4 rounded-xl text-sm font-medium transition-all duration-300 shadow-lg"
+                    onClick={() => { setIsMenuOpen(false); clearSearch(); logout(); }}
+                  >
+                    Logout
+                  </button>
                 </div>
               )}
             </div>

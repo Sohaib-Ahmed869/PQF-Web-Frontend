@@ -95,7 +95,8 @@ const UserManagementPage = () => {
   const hasValidDocuments = (user) => {
     return (user.documents?.tradeLicense && isValidDocument(user.documents.tradeLicense)) ||
            (user.documents?.idDocument && isValidDocument(user.documents.idDocument)) ||
-           (user.documents?.bankStatement && isValidDocument(user.documents.bankStatement));
+           (user.documents?.bankStatement && isValidDocument(user.documents.bankStatement)) ||
+           (user.documents?.bankStatements && user.documents.bankStatements.length > 0);
   };
 
   const getStatusBadge = (status) => {
@@ -311,11 +312,15 @@ const UserManagementPage = () => {
                               </div>
                             )}
                             
-                            {user.documents?.bankStatement && isValidDocument(user.documents.bankStatement) ? (
+                            {(user.documents?.bankStatement && isValidDocument(user.documents.bankStatement)) || 
+                             (user.documents?.bankStatements && user.documents.bankStatements.length > 0) ? (
                               <div className="flex items-center gap-1 bg-green-50 px-2 py-1 rounded-full">
                                 <FileText className="w-3 h-3 text-green-500" />
-                                <span className="text-xs text-green-700 font-medium">Bank Statement</span>
-                                {user.documents.bankStatement.verified && (
+                                <span className="text-xs text-green-700 font-medium">
+                                  {user.documents?.bankStatement ? 'Bank Statement' : `${user.documents.bankStatements.length} Monthly Statements`}
+                                </span>
+                                {(user.documents?.bankStatement?.verified || 
+                                  (user.documents?.bankStatements && user.documents.bankStatements.some(s => s.verified))) && (
                                   <Check className="w-3 h-3 text-green-500" />
                                 )}
                               </div>
@@ -423,11 +428,15 @@ const UserManagementPage = () => {
                                   </div>
                                 )}
                                 
-                                {user.documents?.bankStatement && isValidDocument(user.documents.bankStatement) ? (
+                                {(user.documents?.bankStatement && isValidDocument(user.documents.bankStatement)) || 
+                                 (user.documents?.bankStatements && user.documents.bankStatements.length > 0) ? (
                                   <div className="flex items-center gap-1 bg-green-50 px-2 py-1 rounded-full">
                                     <FileText className="w-3 h-3 text-green-500" />
-                                    <span className="text-xs text-green-700 font-medium">Bank Statement</span>
-                                    {user.documents.bankStatement.verified && (
+                                    <span className="text-xs text-green-700 font-medium">
+                                      {user.documents?.bankStatement ? 'Bank Statement' : `${user.documents.bankStatements.length} Monthly Statements`}
+                                    </span>
+                                    {(user.documents?.bankStatement?.verified || 
+                                      (user.documents?.bankStatements && user.documents.bankStatements.some(s => s.verified))) && (
                                       <Check className="w-3 h-3 text-green-500" />
                                     )}
                                   </div>

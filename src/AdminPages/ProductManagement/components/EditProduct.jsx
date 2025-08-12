@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FiArrowLeft, FiSave, FiUpload, FiX, FiImage, FiCheck, FiSettings } from 'react-icons/fi';
+import { FiArrowLeft, FiSave, FiUpload, FiX, FiImage, FiCheck, FiSettings, FiHeart } from 'react-icons/fi';
 import productService from '../../../services/Admin/productService';
 import LoaderOverlay from '../../../components/LoaderOverlay';
 
@@ -8,6 +8,7 @@ const EditProduct = ({ product, onBack, onSuccess }) => {
   const [imagePreview, setImagePreview] = useState(product?.image || '');
   const [selectedImage, setSelectedImage] = useState(null);
   const [description, setDescription] = useState(product?.description || product?.Description || '');
+  const [featured, setFeatured] = useState(product?.featured || false);
   const [errors, setErrors] = useState({});
 
   const handleImageChange = (file) => {
@@ -41,14 +42,14 @@ const EditProduct = ({ product, onBack, onSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedImage && description === product?.Description) {
-      setErrors({ image: 'Please select an image or update the description.' });
+    if (!selectedImage && description === product?.Description && featured === product?.featured) {
+      setErrors({ submit: 'Please make changes to update the product.' });
       return;
     }
     setLoading(true);
     try {
       const productId = product && (product._id || product.id);
-      await productService.updateProductImageAndDescription(productId, selectedImage, description);
+      await productService.updateProductImageAndDescription(productId, selectedImage, description, featured);
       if (onSuccess) onSuccess();
       if (onBack) onBack();
     } catch (error) {
@@ -171,6 +172,28 @@ const EditProduct = ({ product, onBack, onSuccess }) => {
             placeholder="Enter product description..."
             maxLength={1000}
           />
+          
+          {/* Featured Toggle */}
+          <div className="flex items-center space-x-3 mb-6 mt-6">
+            <div className="p-2 rounded-xl bg-gradient-to-r from-pink-500/10 to-orange-500/10 border border-pink-500/20">
+              <FiHeart className="w-5 h-5 text-pink-600" />
+            </div>
+            <div className="flex items-center space-x-3">
+              <label className="text-lg font-semibold text-gray-900">Featured Product</label>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={featured}
+                  onChange={(e) => setFeatured(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-pink-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-pink-500 peer-checked:to-orange-500"></div>
+                <span className="ml-3 text-sm font-medium text-gray-700">
+                  {featured ? 'Marked as featured' : 'Not featured'}
+                </span>
+              </label>
+            </div>
+          </div>
           <div className="flex justify-end gap-4 pt-6">
             <button
               type="button"

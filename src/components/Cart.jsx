@@ -56,6 +56,8 @@ document.head.appendChild(styleSheet);
 const LazyCartItem = React.memo(({ item, index, onQuantityChange, onRemove, updateLoading, getProductName, getProductImage, getProductPrice, formatPrice }) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [isEditingQuantity, setIsEditingQuantity] = useState(false);
+  const [editQuantity, setEditQuantity] = useState(item.quantity.toString());
   const productId = item.product?._id || item.product?.id || item.product || `item-${index}`;
   const isUpdating = updateLoading[productId];
   
@@ -82,8 +84,51 @@ const LazyCartItem = React.memo(({ item, index, onQuantityChange, onRemove, upda
     return () => clearTimeout(timer);
   }, [index]);
 
+  // Update edit quantity when item quantity changes
+  useEffect(() => {
+    setEditQuantity(item.quantity.toString());
+  }, [item.quantity]);
+
   const handleImageLoad = () => {
     setImageLoaded(true);
+  };
+
+  const handleQuantityClick = () => {
+    setIsEditingQuantity(true);
+    setEditQuantity(item.quantity.toString());
+  };
+
+  const handleQuantityChange = (e) => {
+    const value = e.target.value;
+    // Only allow numbers
+    if (/^\d*$/.test(value)) {
+      setEditQuantity(value);
+    }
+  };
+
+  const handleQuantityKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleQuantitySubmit();
+    } else if (e.key === 'Escape') {
+      handleQuantityCancel();
+    }
+  };
+
+  const handleQuantitySubmit = () => {
+    const newQuantity = parseInt(editQuantity) || 0;
+    if (newQuantity >= 0 && newQuantity <= 999) {
+      onQuantityChange(productId, newQuantity);
+    }
+    setIsEditingQuantity(false);
+  };
+
+  const handleQuantityCancel = () => {
+    setEditQuantity(item.quantity.toString());
+    setIsEditingQuantity(false);
+  };
+
+  const handleQuantityBlur = () => {
+    handleQuantitySubmit();
   };
 
   return (
@@ -181,13 +226,30 @@ const LazyCartItem = React.memo(({ item, index, onQuantityChange, onRemove, upda
                 <Minus className="w-4 h-4 text-gray-600" />
               </button>
               
-              <span className="w-12 text-center font-semibold text-gray-800">
-                {isUpdating ? (
-                  <Loader2 className="w-4 h-4 animate-spin mx-auto" />
-                ) : (
-                  item.quantity
-                )}
-              </span>
+              {isEditingQuantity ? (
+                <input
+                  type="text"
+                  value={editQuantity}
+                  onChange={handleQuantityChange}
+                  onKeyDown={handleQuantityKeyDown}
+                  onBlur={handleQuantityBlur}
+                  className="w-12 text-center font-semibold text-gray-800 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  maxLength="3"
+                  autoFocus
+                />
+              ) : (
+                <span 
+                  className="w-12 text-center font-semibold text-gray-800 cursor-pointer hover:bg-gray-100 rounded transition-colors"
+                  onClick={handleQuantityClick}
+                  title="Click to edit quantity"
+                >
+                  {isUpdating ? (
+                    <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                  ) : (
+                    item.quantity
+                  )}
+                </span>
+              )}
               
               <button
                 onClick={() => onQuantityChange(productId, item.quantity + 1)}

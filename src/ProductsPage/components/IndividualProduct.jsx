@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import webService from '../../services/Website/WebService';
 import { Star, Heart, ShoppingCart, Truck, Shield, Clock, ChevronLeft, ChevronRight, Plus, Minus, Share2, Eye, Snowflake, Loader2, X, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
@@ -8,12 +8,125 @@ import { useWishlist } from '../../context/WishlistContext';
 import { useAuth } from '../../context/AuthContext';
 import LoginModal from '../../components/LoginModal';
 
+// Editable Quantity Component
+const EditableQuantity = ({ quantity, onQuantityChange, onIncrement, onDecrement, productId }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(quantity.toString());
+  const inputRef = useRef(null);
+
+  // Reset edit value when quantity changes externally
+  useEffect(() => {
+    setEditValue(quantity.toString());
+  }, [quantity]);
+
+  // Focus input when editing starts
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  const handleQuantityClick = () => {
+    setIsEditing(true);
+    setEditValue(quantity.toString());
+  };
+
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    // Only allow numbers
+    if (/^\d*$/.test(value)) {
+      setEditValue(value);
+    }
+  };
+
+  const handleInputKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleSubmit();
+    } else if (e.key === 'Escape') {
+      handleCancel();
+    }
+  };
+
+  const handleSubmit = () => {
+    const newQuantity = parseInt(editValue) || 0;
+    if (newQuantity >= 0 && newQuantity <= 999) { // Set reasonable limits
+      onQuantityChange(newQuantity);
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setEditValue(quantity.toString());
+    setIsEditing(false);
+  };
+
+  const handleInputBlur = () => {
+    handleSubmit();
+  };
+
+  return (
+    <div className="flex items-center gap-2 py-2 px-4 rounded-lg font-medium" style={{ backgroundColor: '#8e191c', color: 'white' }}>
+      <button
+        onClick={onDecrement}
+        className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+      >
+        -
+      </button>
+      
+      {isEditing ? (
+        <input
+          ref={inputRef}
+          type="text"
+          value={editValue}
+          onChange={handleInputChange}
+          onKeyDown={handleInputKeyDown}
+          onBlur={handleInputBlur}
+          className="w-24 text-center bg-white/20 rounded px-1 text-white placeholder-white/70 border border-white/30 focus:outline-none focus:border-white"
+          maxLength="3"
+          placeholder="0"
+        />
+      ) : (
+        <span 
+          className="w-24 text-center font-medium cursor-pointer hover:bg-white/10 rounded px-1 py-1 transition-colors"
+          onClick={handleQuantityClick}
+          title="Click to edit quantity"
+        >
+          {quantity}
+        </span>
+      )}
+      
+      <button
+        onClick={onIncrement}
+        className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+      >
+        +
+      </button>
+    </div>
+  );
+};
+
 // Custom Dropdown Component for Price List Selection
 const PriceListSelect = ({ value, onChange, options }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+  
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
   
   return (
-    <div className="relative">
+    <div className="relative" ref={dropdownRef}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
@@ -208,30 +321,26 @@ const RelatedProductCard = React.memo(({ product, onAddToCart, onToggleWishlist,
           {/* Add to Cart Section */}
           <div className="flex items-center gap-2">
             {quantityInCart > 0 ? (
-              <div className="flex items-center gap-2 w-full py-2 px-4 rounded-lg font-medium" style={{ backgroundColor: '#8e191c', color: 'white' }}>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
+              <div onClick={(e) => e.stopPropagation()}>
+                <EditableQuantity
+                  quantity={quantityInCart}
+                  onQuantityChange={(newQuantity) => {
+                    if (newQuantity === 0) {
+                      removeFromCart(product._id || product.id);
+                    } else {
+                      updateCartItem(product._id || product.id, newQuantity);
+                    }
+                  }}
+                  onIncrement={() => addToCart(product._id || product.id, 1)}
+                  onDecrement={() => {
                     if (quantityInCart === 1) {
                       removeFromCart(product._id || product.id);
                     } else {
                       updateCartItem(product._id || product.id, quantityInCart - 1);
                     }
                   }}
-                  className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center"
-                >
-                  -
-                </button>
-                <span className="flex-1 text-center font-medium">{quantityInCart}</span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    addToCart(product._id || product.id, 1);
-                  }}
-                  className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center"
-                >
-                  +
-                </button>
+                  productId={product._id || product.id}
+                />
               </div>
             ) : (
               <button
@@ -439,6 +548,7 @@ const IndividualProductPage = () => {
     if (product.badges && Array.isArray(product.badges)) badges.push(...product.badges);
     return badges;
   };
+  
   const getImages = (product) => {
     if (!product) return [];
     if (product.images && product.images.length > 0) return product.images;
@@ -447,13 +557,16 @@ const IndividualProductPage = () => {
       'https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80'
     ];
   };
+  
   const getStock = (product) => {
     if (!product) return 0;
     return product.stock ?? product.QuantityOnStock ?? 0;
   };
+  
   const getProductName = (product) => {
     return product?.ItemName || product?.name || '';
   };
+  
   const getProductCode = (product) => {
     return product?.ItemCode || product?.code || '';
   };
@@ -506,8 +619,6 @@ const IndividualProductPage = () => {
     handleAddToCart();
   };
 
-
-
   if (loading) return <LoaderOverlay text="Loading product..." />;
   if (error) return (
     <div className="flex justify-center items-center h-96">
@@ -537,7 +648,6 @@ const IndividualProductPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-
       {/* Notification */}
       {showNotification && (
         <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-3 rounded-xl shadow-lg transform transition-all duration-300"
@@ -596,8 +706,6 @@ const IndividualProductPage = () => {
                   {product.weight}
                 </span>
               </h1>
-              
-
             </div>
 
             {/* Price List Selection */}
@@ -648,48 +756,69 @@ const IndividualProductPage = () => {
                     </div>
                   </div>
                 )}
-                
               </div>
             </div>
 
             {/* Add to Cart Section */}
             <div className="flex flex-col gap-4">
-              {/* Add to Cart Button */}
-              <button
-                onClick={handleAddToCartClick}
-                disabled={addingToCart || getStock(product) === 0}
-                className={`w-full text-white font-bold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed ${!isAuthenticated() ? 'bg-gray-300 text-gray-700' : ''}`}
-                style={{ 
-                  background: !isAuthenticated() ? undefined : (getStock(product) === 0 ? '#gray-400' : '#8e191c')
-                }}
-              >
-                {!isAuthenticated() ? (
-                  <>
-                    <ShoppingCart size={20} />
-                    Login to Add to Cart
-                  </>
-                ) : addingToCart ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Adding...
-                  </>
-                ) : getStock(product) === 0 ? (
-                  <>
-                    <X className="w-5 h-5" />
-                    Out of Stock
-                  </>
-                ) : getCurrentCartQuantity() > 0 ? (
-                  <>
-                    <ShoppingCart size={20} />
-                    Add to Cart ({getCurrentCartQuantity()})
-                  </>
-                ) : (
-                  <>
-                    <ShoppingCart size={20} />
-                    Add to Cart
-                  </>
-                )}
-              </button>
+              {/* Show Editable Quantity if product is in cart, otherwise show Add to Cart Button */}
+              {getCurrentCartQuantity() > 0 ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-4">
+                    <span className="text-base font-bold text-gray-600">Quantity in cart:</span>
+                    <EditableQuantity
+                      quantity={getCurrentCartQuantity()}
+                      onQuantityChange={(newQuantity) => {
+                        if (newQuantity === 0) {
+                          removeFromCart(productId);
+                        } else {
+                          updateCartItem(productId, newQuantity);
+                        }
+                      }}
+                      onIncrement={() => updateCartItem(productId, getCurrentCartQuantity() + 1)}
+                      onDecrement={() => {
+                        if (getCurrentCartQuantity() === 1) {
+                          removeFromCart(productId);
+                        } else {
+                          updateCartItem(productId, getCurrentCartQuantity() - 1);
+                        }
+                      }}
+                      productId={productId}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={handleAddToCartClick}
+                  disabled={addingToCart || getStock(product) === 0}
+                  className={`w-full text-white font-bold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed ${!isAuthenticated() ? 'bg-gray-300 text-gray-700' : ''}`}
+                  style={{ 
+                    background: !isAuthenticated() ? undefined : (getStock(product) === 0 ? '#gray-400' : '#8e191c')
+                  }}
+                >
+                  {!isAuthenticated() ? (
+                    <>
+                      <ShoppingCart size={20} />
+                      Login to Add to Cart
+                    </>
+                  ) : addingToCart ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Adding...
+                    </>
+                  ) : getStock(product) === 0 ? (
+                    <>
+                      <X className="w-5 h-5" />
+                      Out of Stock
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingCart size={20} />
+                      Add to Cart
+                    </>
+                  )}
+                </button>
+              )}
               
               {addToCartError && (
                 <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -701,47 +830,47 @@ const IndividualProductPage = () => {
               )}
             </div>
 
-             {/* Product Description */}
-             <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-gray-100">
-               <h3 className="text-xl font-bold text-gray-800 mb-4">Product Description</h3>
-               <p className="text-gray-600 leading-relaxed">{description}</p>
-             </div>
+            {/* Product Description */}
+            <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-gray-100">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">Product Description</h3>
+              <p className="text-gray-600 leading-relaxed">{description}</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-           </div>
-         </div>
-       </div>
-
-       {/* Related Products Section */}
-       <div className="mt-16">
-         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
-           <h2 className="text-2xl font-bold text-gray-800 mb-6">Related Products</h2>
-           
-           {relatedProductsLoading ? (
-             <div className="flex justify-center items-center py-12">
-               <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#8e191c' }} />
-               <span className="ml-3 text-gray-600">Loading related products...</span>
-             </div>
-           ) : relatedProducts.length > 0 ? (
-             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-               {relatedProducts.map((relatedProduct, index) => (
-                 <RelatedProductCard
-                   key={relatedProduct._id || relatedProduct.id || index}
-                   product={relatedProduct}
-                   onAddToCart={addToCart}
-                   onToggleWishlist={toggleWishlist}
-                   isInWishlist={isInWishlist(relatedProduct._id || relatedProduct.id)}
-                   triggerLoginModal={() => setShowLoginModal(true)}
-                   selectedPriceList={selectedPriceList}
-                 />
-               ))}
-             </div>
-           ) : (
-             <div className="text-center py-12">
-               <p className="text-gray-500">No related products available</p>
-             </div>
-           )}
-         </div>
-       </div>
+      {/* Related Products Section */}
+      <div className="mt-16">
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+          <h2 className="text-2xl font-bold text-gray-800 mb-6">Related Products</h2>
+          
+          {relatedProductsLoading ? (
+            <div className="flex justify-center items-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#8e191c' }} />
+              <span className="ml-3 text-gray-600">Loading related products...</span>
+            </div>
+          ) : relatedProducts.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {relatedProducts.map((relatedProduct, index) => (
+                <RelatedProductCard
+                  key={relatedProduct._id || relatedProduct.id || index}
+                  product={relatedProduct}
+                  onAddToCart={addToCart}
+                  onToggleWishlist={toggleWishlist}
+                  isInWishlist={isInWishlist(relatedProduct._id || relatedProduct.id)}
+                  triggerLoginModal={() => setShowLoginModal(true)}
+                  selectedPriceList={selectedPriceList}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-gray-500">No related products available</p>
+            </div>
+          )}
+        </div>
+      </div>
+      
       <LoginModal
         show={showLoginModal}
         onClose={() => setShowLoginModal(false)}

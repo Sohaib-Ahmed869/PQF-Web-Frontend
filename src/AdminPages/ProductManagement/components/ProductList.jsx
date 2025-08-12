@@ -46,7 +46,8 @@ const ProductList = ({ products: initialProducts, loading, onDelete, onRefresh, 
     { value: 'inStock', label: 'In Stock', count: 0 },
     { value: 'outOfStock', label: 'Out of Stock', count: 0 },
     { value: 'active', label: 'Active', count: 0 },
-    { value: 'inactive', label: 'Inactive', count: 0 }
+    { value: 'inactive', label: 'Inactive', count: 0 },
+    { value: 'featured', label: 'Featured', count: 0 }
   ];
 
   const priceListOptions = [
@@ -78,6 +79,7 @@ const ProductList = ({ products: initialProducts, loading, onDelete, onRefresh, 
       if ((product.stock || 0) === 0) counts.outOfStock = (counts.outOfStock || 0) + 1;
       if (product.valid === 'tYES') counts.active = (counts.active || 0) + 1;
       if (product.valid === 'tNO') counts.inactive = (counts.inactive || 0) + 1;
+      if (product.featured === true) counts.featured = (counts.featured || 0) + 1;
     });
     counts.all = localProducts.length;
     return counts;
@@ -121,6 +123,7 @@ const ProductList = ({ products: initialProducts, loading, onDelete, onRefresh, 
       if (selectedStatus === 'outOfStock' && (product.stock || 0) > 0) return false;
       if (selectedStatus === 'active' && product.valid !== 'tYES') return false;
       if (selectedStatus === 'inactive' && product.valid !== 'tNO') return false;
+      if (selectedStatus === 'featured' && product.featured !== true) return false;
     }
 
     // Price range filter
@@ -335,7 +338,8 @@ const ProductList = ({ products: initialProducts, loading, onDelete, onRefresh, 
                                 status.value === 'inStock' ? FiCheckCircle :
                                 status.value === 'outOfStock' ? FiXCircle : 
                                 status.value === 'active' ? FiCheckCircle :
-                                status.value === 'inactive' ? FiXCircle : FiGrid;
+                                status.value === 'inactive' ? FiXCircle : 
+                                status.value === 'featured' ? FiHeart : FiGrid;
                     
                     return (
                       <button
@@ -351,7 +355,7 @@ const ProductList = ({ products: initialProducts, loading, onDelete, onRefresh, 
                           <div className={`p-2 rounded-lg transition-all duration-300 ${
                             isSelected 
                               ? 'bg-white/20' 
-                              : 'bg-red-100 text-red-600'
+                              : status.value === 'featured' ? 'bg-pink-100 text-pink-600' : 'bg-red-100 text-red-600'
                           }`}>
                             <Icon className="w-4 h-4" />
                           </div>
@@ -423,6 +427,9 @@ const ProductList = ({ products: initialProducts, loading, onDelete, onRefresh, 
                   )}
                 </div>
               )}
+              <div className="mt-2 text-xs text-gray-500">
+                Featured: {statusCounts.featured || 0} • Frozen: {statusCounts.frozen || 0} • In Stock: {statusCounts.inStock || 0}
+              </div>
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-500">
               <FiClock className="w-4 h-4" />
@@ -505,6 +512,14 @@ const ProductList = ({ products: initialProducts, loading, onDelete, onRefresh, 
                           
                                                      {/* Status Badges Row */}
                            <div className="flex flex-wrap items-center gap-2 mb-4">
+                             {/* Featured Status */}
+                             {product.featured === true && (
+                               <span className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-pink-50 to-orange-100 text-pink-700 border border-pink-200 flex items-center shadow-sm hover:shadow-md transition-all duration-200">
+                                 <FiHeart className="w-3 h-3 mr-1.5" />
+                                 Featured
+                               </span>
+                             )}
+                             
                              {/* Frozen Status */}
                              {product.frozen === 'tYES' && (
                                <span className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700 border border-blue-200 flex items-center shadow-sm hover:shadow-md transition-all duration-200">
@@ -613,6 +628,13 @@ const ProductList = ({ products: initialProducts, loading, onDelete, onRefresh, 
 
                             </div>
                             <div className="flex items-center gap-2">
+                              {product.featured === true && (
+                                <span className="px-2 py-1 rounded-full text-xs font-semibold bg-pink-100 text-pink-700 border border-pink-300">
+                                  <FiHeart className="w-3 h-3 inline mr-1" />
+                                  Featured
+                                </span>
+                              )}
+                              
                               {product.frozen === 'tYES' && (
                                 <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-300">
                                   <FaSnowflake className="w-3 h-3 inline mr-1" />
