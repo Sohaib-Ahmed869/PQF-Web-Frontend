@@ -57,7 +57,7 @@ const LazyCartItem = React.memo(({ item, index, onQuantityChange, onRemove, upda
   const [isLoaded, setIsLoaded] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [isEditingQuantity, setIsEditingQuantity] = useState(false);
-  const [editQuantity, setEditQuantity] = useState(item.quantity.toString());
+  const [editQuantity, setEditQuantity] = useState(Math.max(0, item.quantity - (item.freeQuantity || 0)).toString());
   const productId = item.product?._id || item.product?.id || item.product || `item-${index}`;
   const isUpdating = updateLoading[productId];
   
@@ -84,10 +84,11 @@ const LazyCartItem = React.memo(({ item, index, onQuantityChange, onRemove, upda
     return () => clearTimeout(timer);
   }, [index]);
 
-  // Update edit quantity when item quantity changes
+  // Update edit quantity when item quantity changes - use paid quantity only for editing
   useEffect(() => {
-    setEditQuantity(item.quantity.toString());
-  }, [item.quantity]);
+    const paidQuantity = Math.max(0, item.quantity - (item.freeQuantity || 0));
+    setEditQuantity(paidQuantity.toString());
+  }, [item.quantity, item.freeQuantity]);
 
   const handleImageLoad = () => {
     setImageLoaded(true);
@@ -95,7 +96,9 @@ const LazyCartItem = React.memo(({ item, index, onQuantityChange, onRemove, upda
 
   const handleQuantityClick = () => {
     setIsEditingQuantity(true);
-    setEditQuantity(item.quantity.toString());
+    // Set editable quantity to paid quantity only
+    const paidQuantity = Math.max(0, item.quantity - (item.freeQuantity || 0));
+    setEditQuantity(paidQuantity.toString());
   };
 
   const handleQuantityChange = (e) => {
@@ -115,15 +118,18 @@ const LazyCartItem = React.memo(({ item, index, onQuantityChange, onRemove, upda
   };
 
   const handleQuantitySubmit = () => {
-    const newQuantity = parseInt(editQuantity) || 0;
-    if (newQuantity >= 0 && newQuantity <= 999) {
-      onQuantityChange(productId, newQuantity);
+    const newPaidQuantity = parseInt(editQuantity) || 0;
+    if (newPaidQuantity >= 0 && newPaidQuantity <= 999) {
+      // Send the new paid quantity (backend will recalculate free items)
+      onQuantityChange(productId, newPaidQuantity);
     }
     setIsEditingQuantity(false);
   };
 
   const handleQuantityCancel = () => {
-    setEditQuantity(item.quantity.toString());
+    // Reset to paid quantity only
+    const paidQuantity = Math.max(0, item.quantity - (item.freeQuantity || 0));
+    setEditQuantity(paidQuantity.toString());
     setIsEditingQuantity(false);
   };
 
@@ -219,7 +225,10 @@ const LazyCartItem = React.memo(({ item, index, onQuantityChange, onRemove, upda
           <div className="flex items-center justify-between mt-4">
             <div className="flex items-center gap-2">
               <button
-                onClick={() => onQuantityChange(productId, Math.max(0, item.quantity - 1))}
+                onClick={() => {
+                  const currentPaidQuantity = Math.max(0, item.quantity - (item.freeQuantity || 0));
+                  onQuantityChange(productId, Math.max(0, currentPaidQuantity - 1));
+                }}
                 disabled={isUpdating}
                 className="p-1 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50"
               >
@@ -238,21 +247,31 @@ const LazyCartItem = React.memo(({ item, index, onQuantityChange, onRemove, upda
                   autoFocus
                 />
               ) : (
-                <span 
-                  className="w-12 text-center font-semibold text-gray-800 cursor-pointer hover:bg-gray-100 rounded transition-colors"
-                  onClick={handleQuantityClick}
-                  title="Click to edit quantity"
-                >
-                  {isUpdating ? (
-                    <Loader2 className="w-4 h-4 animate-spin mx-auto" />
-                  ) : (
-                    item.quantity
+                <div className="flex flex-col items-center">
+                  <span 
+                    className="text-center font-semibold text-gray-800 cursor-pointer hover:bg-gray-100 rounded transition-colors px-2 py-1"
+                    onClick={handleQuantityClick}
+                    title="Click to edit paid quantity"
+                  >
+                    {isUpdating ? (
+                      <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                    ) : (
+                      Math.max(0, item.quantity - (item.freeQuantity || 0))
+                    )}
+                  </span>
+                  {freeQuantity > 0 && (
+                    <span className="text-xs text-green-600 font-medium">
+                      +{freeQuantity} FREE
+                    </span>
                   )}
-                </span>
+                </div>
               )}
               
               <button
-                onClick={() => onQuantityChange(productId, item.quantity + 1)}
+                onClick={() => {
+                  const currentPaidQuantity = Math.max(0, item.quantity - (item.freeQuantity || 0));
+                  onQuantityChange(productId, currentPaidQuantity + 1);
+                }}
                 disabled={isUpdating}
                 className="p-1 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50"
               >
@@ -326,9 +345,11 @@ const Cart = () => {
   const [promotionError, setPromotionError] = useState(null);
   const [availablePromotions, setAvailablePromotions] = useState([]);
 
-  // Single-promo behavior: check if a promotion is already applied
-  const hasAppliedPromo = (cart.appliedPromotions?.length || 0) > 0;
-  const currentPromo = hasAppliedPromo ? cart.appliedPromotions[0] : null;
+  // Separate manual and auto promotions
+  const manualPromotions = cart.appliedPromotions?.filter(ap => !ap.isAutoApplied) || [];
+  const autoPromotions = cart.appliedPromotions?.filter(ap => ap.isAutoApplied) || [];
+  const hasManualPromo = manualPromotions.length > 0;
+  const currentManualPromo = hasManualPromo ? manualPromotions[0] : null;
 
   // Initialize applied promotions from cart data
   useEffect(() => {
@@ -416,6 +437,21 @@ const Cart = () => {
 
   const getCartItemCount = () => {
     return cart.items.reduce((total, item) => total + item.quantity, 0);
+  };
+
+  const getPaidItemCount = () => {
+    return cart.items.reduce((total, item) => {
+      if (item.isFreeItem) return total;
+      const paidQuantity = Math.max(0, item.quantity - (item.freeQuantity || 0));
+      return total + paidQuantity;
+    }, 0);
+  };
+
+  const getFreeItemCount = () => {
+    return cart.items.reduce((total, item) => {
+      if (item.isFreeItem) return total + item.quantity;
+      return total + (item.freeQuantity || 0);
+    }, 0);
   };
 
   const getProductName = (product) => {
@@ -537,9 +573,9 @@ const Cart = () => {
     setPromotionError(null);
 
     try {
-      // If one is applied, remove it first (single-promo policy)
-      if (hasAppliedPromo) {
-        await promotionService.removeAllPromotions(cart._id, token);
+      // If a manual promotion is applied, remove it first (single manual promo policy)
+      if (hasManualPromo) {
+        await promotionService.removePromotion(cart._id, currentManualPromo.promotion?._id || currentManualPromo.promotion, token);
       }
 
       // Now apply the new one
@@ -733,14 +769,14 @@ const Cart = () => {
     }
   };
 
-  // Remove applied promotion handler for single-promo behavior
+  // Remove applied manual promotion handler
   const handleRemoveAppliedPromotion = async () => {
     try {
-      if (currentPromo) {
-        // Remove the specific promotion
-        await promotionService.removePromotion(cart._id, currentPromo.promotion?._id || currentPromo.promotion, token);
+      if (currentManualPromo) {
+        // Remove the specific manual promotion
+        await promotionService.removePromotion(cart._id, currentManualPromo.promotion?._id || currentManualPromo.promotion, token);
       } else {
-        // Remove all promotions as fallback
+        // Remove all manual promotions as fallback
         await promotionService.removeAllPromotions(cart._id, token);
       }
       await refreshCart();
@@ -896,9 +932,16 @@ const Cart = () => {
               <ShoppingCart className="w-8 h-8" style={{ color: '#8e191c' }} />
               Shopping Cart
               {getCartItemCount() > 0 && (
-                <span className="text-white text-sm px-3 py-1 rounded-full" style={{ backgroundColor: '#8e191c' }}>
-                  {getCartItemCount()} items
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-white text-sm px-3 py-1 rounded-full" style={{ backgroundColor: '#8e191c' }}>
+                    {getPaidItemCount()} items
+                  </span>
+                  {getFreeItemCount() > 0 && (
+                    <span className="text-white text-sm px-3 py-1 rounded-full bg-green-600">
+                      +{getFreeItemCount()} FREE
+                    </span>
+                  )}
+                </div>
               )}
             </h1>
           </div>
@@ -983,14 +1026,39 @@ const Cart = () => {
                     Promotions & Discounts
                   </h3>
 
-                  {hasAppliedPromo ? (
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-green-50 border border-green-200">
+                  {/* Auto-Applied Promotions */}
+                  {autoPromotions.length > 0 && (
+                    <div className="mb-4">
+                      <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                        ✨ Auto-Applied Promotions
+                      </h4>
+                      {autoPromotions.map((promo, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-blue-50 border border-blue-200 mb-2">
+                          <div className="text-sm">
+                            <div className="font-semibold text-blue-700">
+                              {promo.promotion?.name || promo.name || 'Auto-Applied Promotion'}
+                            </div>
+                            <div className="text-blue-600 text-xs">
+                              Automatically applied • {promo.discountAmount > 0 ? `Saved ${formatPrice(promo.discountAmount)}` : 'Free items added'}
+                            </div>
+                          </div>
+                          <div className="text-blue-600 text-xs font-medium">
+                            AUTO
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Manual Promotion Application */}
+                  {hasManualPromo ? (
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-green-50 border border-green-200 mb-4">
                       <div className="text-sm">
                         <div className="font-semibold text-green-700">
-                          {currentPromo.promotion?.name || currentPromo.name}
+                          {currentManualPromo.promotion?.name || currentManualPromo.name}
                         </div>
                         <div className="text-green-600">
-                          Code: {currentPromo.code}
+                          Code: {currentManualPromo.code}
                         </div>
                       </div>
                       <button
@@ -1000,27 +1068,33 @@ const Cart = () => {
                         <X className="w-4 h-4" /> Remove
                       </button>
                     </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={promotionCode}
-                        onChange={(e) => setPromotionCode(e.target.value)}
-                        placeholder="Enter promotion code"
-                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      <button
-                        onClick={handleApplyPromotion}
-                        disabled={!promotionCode.trim() || applyingPromotion}
-                        className="px-4 py-2 text-white rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors hover:opacity-90"
-                        style={{ backgroundColor: '#8e191c' }}
-                      >
-                        {applyingPromotion ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          'Apply'
-                        )}
-                      </button>
+                  ) : null}
+
+                  {/* Manual Promotion Code Input */}
+                  {!hasManualPromo && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Apply Promotion Code</h4>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={promotionCode}
+                          onChange={(e) => setPromotionCode(e.target.value)}
+                          placeholder="Enter promotion code"
+                          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <button
+                          onClick={handleApplyPromotion}
+                          disabled={!promotionCode.trim() || applyingPromotion}
+                          className="px-4 py-2 text-white rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors hover:opacity-90"
+                          style={{ backgroundColor: '#8e191c' }}
+                        >
+                          {applyingPromotion ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            'Apply'
+                          )}
+                        </button>
+                      </div>
                     </div>
                   )}
 
@@ -1043,7 +1117,13 @@ const Cart = () => {
                 
                 <div className="space-y-4 mb-6">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Subtotal ({getCartItemCount()} items)</span>
+                    <div className="text-gray-600">
+                      <span>Subtotal ({getPaidItemCount()} items</span>
+                      {getFreeItemCount() > 0 && (
+                        <span className="text-green-600 ml-1">+ {getFreeItemCount()} FREE</span>
+                      )}
+                      <span>)</span>
+                    </div>
                     <span className="font-semibold">{formatPrice(cart.originalTotal || cart.total)}</span>
                   </div>
                   

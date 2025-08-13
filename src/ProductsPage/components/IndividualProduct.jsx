@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import webService from '../../services/Website/WebService';
-import { Star, Heart, ShoppingCart, Truck, Shield, Clock, ChevronLeft, ChevronRight, Plus, Minus, Share2, Eye, Snowflake, Loader2, X, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { Star, Heart, ShoppingCart, Truck, Shield, Clock, ChevronLeft, ChevronRight, Plus, Minus, Share2, Eye, Snowflake, Loader2, X, AlertCircle, CheckCircle, XCircle, Gift, Tag } from 'lucide-react';
 import LoaderOverlay from '../../components/LoaderOverlay';
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
 import { useAuth } from '../../context/AuthContext';
 import LoginModal from '../../components/LoginModal';
+import promotionService from '../../services/promotionService';
+import { getApplicablePromotionsForProduct, computeBuyXGetYFreeQty, computeQuantityDiscountForProduct } from '../../services/promotionClientUtils';
 
 // Editable Quantity Component
 const EditableQuantity = ({ quantity, onQuantityChange, onIncrement, onDecrement, productId }) => {
@@ -208,7 +210,7 @@ const RelatedProductCard = React.memo(({ product, onAddToCart, onToggleWishlist,
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
-  const { addToCart, getCartItem, updateCartItem, removeFromCart } = useCart();
+  const { addToCart, getCartItem, updateCartItem, removeFromCart, cart } = useCart();
   
   // Get price for selected price list
   const getPrice = (product) => {
@@ -399,11 +401,13 @@ const IndividualProductPage = () => {
   const { isInWishlist, toggleWishlist } = useWishlist();
   const [showNotification, setShowNotification] = useState(false);
   const [hoveredFeature, setHoveredFeature] = useState(null);
-  const { addToCart, getCartItem, updateCartItem, removeFromCart } = useCart();
+  const { addToCart, getCartItem, updateCartItem, removeFromCart, cart } = useCart();
   const [addingToCart, setAddingToCart] = useState(false);
   const [addToCartError, setAddToCartError] = useState(null);
   const { isAuthenticated } = useAuth();
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [promotions, setPromotions] = useState([]);
+  const [promotionsLoading, setPromotionsLoading] = useState(false);
 
   // Price list options
   const priceListOptions = [
@@ -443,6 +447,23 @@ const IndividualProductPage = () => {
     };
     fetchProduct();
   }, [id]);
+
+  // Load promotions
+  useEffect(() => {
+    const loadPromos = async () => {
+      setPromotionsLoading(true);
+      try {
+        const res = await promotionService.getPublicPromotions();
+        const promos = res?.data?.data || [];
+        setPromotions(Array.isArray(promos) ? promos : []);
+      } catch (e) {
+        setPromotions([]);
+      } finally {
+        setPromotionsLoading(false);
+      }
+    };
+    loadPromos();
+  }, []);
 
   // Fetch related products
   useEffect(() => {
@@ -628,6 +649,25 @@ const IndividualProductPage = () => {
   if (!product) return null;
 
   const productId = product._id || product.id;
+  const applicablePromotions = getApplicablePromotionsForProduct(promotions, product);
+  const buyXGetYPromos = applicablePromotions.filter(p => p.type === 'buyXGetY');
+  const qtyDiscountPromos = applicablePromotions.filter(p => p.type === 'quantityDiscount');
+  const cartItem = getCartItem(productId);
+  const quantityInCart = cartItem ? cartItem.quantity : 0;
+  const freeQty = buyXGetYPromos.reduce((max, promo) => Math.max(max, computeBuyXGetYFreeQty(promo, Math.max(0, quantityInCart - (cartItem?.freeQuantity || 0)))), 0);
+  const bestQtyDiscount = qtyDiscountPromos.reduce((best, promo) => {
+    const res = computeQuantityDiscountForProduct(promo, product, cart.items || [], (p) => getPrice(p));
+    if (!res.eligible) return best;
+    return res.productDiscount > (best?.productDiscount || 0) ? { promo, ...res } : best;
+  }, null);
+  const unitPrice = getPrice(product, selectedPriceList);
+  const originalTotal = unitPrice * quantityInCart;
+  const existingFree = cartItem?.freeQuantity || 0;
+  const effectiveFreeQty = Math.max(existingFree, freeQty);
+  const chargeableQty = Math.max(0, quantityInCart - effectiveFreeQty);
+  const controlPaidQty = Math.max(0, quantityInCart - existingFree);
+  const finalTotal = Math.max(0, (unitPrice * chargeableQty) - (bestQtyDiscount?.productDiscount || 0));
+  const isQtyDiscountActive = !!bestQtyDiscount && bestQtyDiscount.productDiscount > 0;
 
   // Fallbacks for features, description, etc.
   const features = product.features || [
@@ -671,6 +711,26 @@ const IndividualProductPage = () => {
                 alt={productName}
                 className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
               />
+
+              {/* Image badges */}
+              {freeQty > 0 && (
+                <div className="absolute top-3 left-3 px-3 py-1 rounded-md text-sm font-bold text-white shadow" style={{ backgroundColor: '#16a34a' }}>
+                  {`Free +${freeQty}`}
+                </div>
+              )}
+              {(freeQty > 0 || isQtyDiscountActive) && (
+                <div className="absolute bottom-3 left-3">
+                  {freeQty > 0 ? (
+                    <div className="w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow">
+                      <Gift className="w-5 h-5" style={{ color: '#8e191c' }} />
+                    </div>
+                  ) : isQtyDiscountActive ? (
+                    <div className="w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow">
+                      <Tag className="w-5 h-5" style={{ color: '#8e191c' }} />
+                    </div>
+                  ) : null}
+                </div>
+              )}
               
               {/* Wishlist Button */}
               <button
@@ -726,13 +786,26 @@ const IndividualProductPage = () => {
                     {getPriceTypeLabel(selectedPriceList)}:
                   </span>
                   {isAuthenticated() ? (
-                    <span className="text-3xl font-bold" style={{ color: '#8e191c' }}>
-                      {formatPrice(product, selectedPriceList)}
-                    </span>
+                    quantityInCart > 0 && (finalTotal < originalTotal) ? (
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl text-gray-400 line-through">{`AED ${originalTotal.toFixed(2)}`}</span>
+                        <span className="text-3xl font-bold" style={{ color: '#8e191c' }}>{`AED ${finalTotal.toFixed(2)}`}</span>
+                      </div>
+                    ) : (
+                      <span className="text-3xl font-bold" style={{ color: '#8e191c' }}>
+                        {formatPrice(product, selectedPriceList)}
+                      </span>
+                    )
                   ) : (
                     <span className="text-3xl font-bold opacity-60">Login to see price</span>
                   )}
                 </div>
+                {quantityInCart > 0 && (freeQty > 0) && (
+                  <div>
+                    <span className="text-sm text-emerald-700 font-medium">{`${quantityInCart} items • Free +${freeQty}`}</span>
+                  </div>
+                )}
+                {/* Hide long texts here; icons and crossed totals already indicate */}
                 
                 {/* Show all available prices if user is authenticated */}
                 {isAuthenticated() && product.prices && Array.isArray(product.prices) && product.prices.length > 1 && (
@@ -767,20 +840,20 @@ const IndividualProductPage = () => {
                   <div className="flex items-center gap-4">
                     <span className="text-base font-bold text-gray-600">Quantity in cart:</span>
                     <EditableQuantity
-                      quantity={getCurrentCartQuantity()}
-                      onQuantityChange={(newQuantity) => {
-                        if (newQuantity === 0) {
+                      quantity={controlPaidQty}
+                      onQuantityChange={(newPaidQty) => {
+                        if (newPaidQty === 0) {
                           removeFromCart(productId);
                         } else {
-                          updateCartItem(productId, newQuantity);
+                          updateCartItem(productId, newPaidQty);
                         }
                       }}
-                      onIncrement={() => updateCartItem(productId, getCurrentCartQuantity() + 1)}
+                      onIncrement={() => updateCartItem(productId, controlPaidQty + 1)}
                       onDecrement={() => {
-                        if (getCurrentCartQuantity() === 1) {
+                        if (controlPaidQty === 1) {
                           removeFromCart(productId);
                         } else {
-                          updateCartItem(productId, getCurrentCartQuantity() - 1);
+                          updateCartItem(productId, controlPaidQty - 1);
                         }
                       }}
                       productId={productId}

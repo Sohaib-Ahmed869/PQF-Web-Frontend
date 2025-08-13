@@ -59,10 +59,15 @@ const PromotionBadge = ({ product, className = "" }) => {
     return null;
   }
 
-  // Get the highest priority promotion for display
-  const bestPromotion = applicablePromotions.reduce((best, current) => {
-    return (current.priority || 1) > (best.priority || 1) ? current : best;
-  });
+  // Prioritize auto-apply promotions, then highest priority
+  const autoApplyPromotions = applicablePromotions.filter(p => p.autoApply && !p.requiresCode);
+  const bestPromotion = autoApplyPromotions.length > 0 
+    ? autoApplyPromotions.reduce((best, current) => {
+        return (current.priority || 1) > (best.priority || 1) ? current : best;
+      })
+    : applicablePromotions.reduce((best, current) => {
+        return (current.priority || 1) > (best.priority || 1) ? current : best;
+      });
 
   const getPromotionIcon = (type) => {
     switch (type) {
@@ -102,7 +107,19 @@ const PromotionBadge = ({ product, className = "" }) => {
     return 'OFFER';
   };
 
-  const getPromotionColor = (type) => {
+  const getPromotionColor = (type, isAutoApply) => {
+    if (isAutoApply) {
+      // Special styling for auto-apply promotions
+      switch (type) {
+        case 'buyXGetY':
+          return 'bg-gradient-to-r from-green-500 to-green-600 text-white border-2 border-white';
+        case 'quantityDiscount':
+          return 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-2 border-white';
+        default:
+          return 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white border-2 border-white';
+      }
+    }
+    
     switch (type) {
       case 'buyXGetY':
         return 'bg-green-500 text-white';
@@ -115,22 +132,34 @@ const PromotionBadge = ({ product, className = "" }) => {
     }
   };
 
+  const isAutoApply = bestPromotion.autoApply && !bestPromotion.requiresCode;
+
   return (
     <div className={`absolute top-2 left-2 z-10 ${className}`}>
       <div 
         className={`
           inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold 
-          ${getPromotionColor(bestPromotion.type)}
-          shadow-md animate-pulse
+          ${getPromotionColor(bestPromotion.type, isAutoApply)}
+          shadow-md ${isAutoApply ? 'animate-pulse' : ''}
         `}
-        title={bestPromotion.name}
+        title={`${bestPromotion.name}${isAutoApply ? ' (Auto-Applied)' : ''}`}
       >
         {getPromotionIcon(bestPromotion.type)}
         <span>{getPromotionText(bestPromotion)}</span>
+        {isAutoApply && (
+          <span className="text-xs opacity-90">⚡</span>
+        )}
       </div>
       
+      {/* Auto-apply indicator */}
+      {isAutoApply && (
+        <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 text-yellow-900 text-xs rounded-full flex items-center justify-center font-bold">
+          ⚡
+        </div>
+      )}
+      
       {/* Multiple promotions indicator */}
-      {applicablePromotions.length > 1 && (
+      {applicablePromotions.length > 1 && !isAutoApply && (
         <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
           {applicablePromotions.length}
         </div>

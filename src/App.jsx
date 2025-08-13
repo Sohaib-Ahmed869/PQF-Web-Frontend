@@ -29,6 +29,7 @@ import { WishlistProvider } from './context/WishlistContext';
 import { PromotionProvider } from './context/PromotionContext';
 import { StoreProvider } from './context/StoreContext';
 import PromotionsPage from './pages/PromotionsPage';
+import AutoPromotionNotification from './components/AutoPromotionNotification';
 import OrderTracking from './UserPages/OrderTracking';
 import OrderManagement from './AdminPages/OrderManagement/OrderPage';
 import DisputePage from './AdminPages/DisputeManagement/DisputePage';
@@ -69,6 +70,7 @@ function App() {
             <PromotionProvider>
           <BrowserRouter>
             <Layout>
+              <AutoPromotionNotification />
               <Routes>
                 <Route path="/login" element={<PremierLogin />} />
                 <Route path="/register" element={<PremierRegistration />} />

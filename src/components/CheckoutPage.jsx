@@ -1617,10 +1617,10 @@ const CheckoutPageContent = () => {
                               </span>
                             </div>
                             <div className="ml-4 mt-1 text-sm text-black">
-                              Quantity: {item.quantity}
-                              {freeQuantity > 0 && regularQuantity > 0 && (
+                              Quantity: {regularQuantity}
+                              {freeQuantity > 0 && (
                                 <span className="text-green-600 ml-2">
-                                  ({regularQuantity} paid + {freeQuantity} free)
+                                  (+{freeQuantity} FREE)
                                 </span>
                               )}
                             </div>
@@ -1829,11 +1829,11 @@ const CheckoutPageContent = () => {
                         <div className="flex items-center justify-between mt-1">
                           <div className="flex items-center space-x-2">
                             <span className="text-gray-600 text-sm">
-                              Qty: {item.quantity}
+                              Qty: {regularQuantity}
                             </span>
                             {freeQuantity > 0 && (
                               <span className="text-green-600 text-sm font-medium">
-                                ({freeQuantity} FREE)
+                                (+{freeQuantity} FREE)
                               </span>
                             )}
                           </div>
