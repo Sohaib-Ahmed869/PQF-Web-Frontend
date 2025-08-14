@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   FaHome,
   FaBox,
@@ -39,6 +39,22 @@ export default function UserSidebar() {
     localStorage.removeItem('token')
     window.location.href = '/login'
   }
+
+  // Notify content about sidebar width so layouts can adjust
+  useEffect(() => {
+    const notifyWidth = () => {
+      const width = isCollapsed ? '4rem' : '16rem'
+      try {
+        window.dispatchEvent(new CustomEvent('sidebar:width', { detail: { width } }))
+      } catch {}
+    }
+    // initial notify and whenever collapsed changes
+    notifyWidth()
+    return () => {
+      // on unmount, send default expanded width
+      try { window.dispatchEvent(new CustomEvent('sidebar:width', { detail: { width: '16rem' } })) } catch {}
+    }
+  }, [isCollapsed])
 
   return (
     <>

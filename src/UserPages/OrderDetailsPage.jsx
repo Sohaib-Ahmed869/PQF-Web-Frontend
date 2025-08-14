@@ -21,7 +21,7 @@ import UserSidebar from './UserSidebar';
 import ConfirmModal from '../components/ConfirmModal';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import LoaderOverlay from '../components/LoaderOverlay';
+// Removed LoaderOverlay import – page renders without blocking loader
 import { ToastContainer, Bounce } from 'react-toastify';
 
 const OrderDetailsPage = () => {
@@ -52,29 +52,43 @@ const OrderDetailsPage = () => {
     fetchOrder();
   }, [orderId]);
 
+  useEffect(() => {
+    const handler = (e) => {
+      const content = document.getElementById('details-content-wrapper');
+      if (!content) return;
+      const width = e?.detail?.width;
+      if (window.innerWidth >= 1024) {
+        content.style.marginLeft = width || '16rem';
+      } else {
+        content.style.marginLeft = '0px';
+      }
+    };
+    window.addEventListener('sidebar:width', handler);
+    handler({ detail: { width: '16rem' } });
+    const onResize = () => handler();
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('sidebar:width', handler);
+      window.removeEventListener('resize', onResize);
+    };
+  }, []);
+
   const getStatusIcon = (status) => {
+    // Normalize icon color to brand color
+    const brand = { color: '#8e191c' };
     switch (status) {
       case 'paid':
-        return <CheckCircle className="w-5 h-5 text-green-500" />;
+        return <CheckCircle className="w-5 h-5" style={brand} />;
       case 'pending':
-        return <Clock className="w-5 h-5 text-yellow-500" />;
+        return <Clock className="w-5 h-5" style={brand} />;
       default:
-        return <AlertCircle className="w-5 h-5 text-red-500" />;
+        return <AlertCircle className="w-5 h-5" style={brand} />;
     }
   };
 
-  const getTrackingStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'delivered':
-        return 'text-green-600 bg-green-100';
-      case 'shipped':
-      case 'in transit':
-        return 'text-blue-600 bg-blue-100';
-      case 'processing':
-        return 'text-yellow-600 bg-yellow-100';
-      default:
-        return 'text-gray-600 bg-gray-100';
-    }
+  const getTrackingStatusColor = () => {
+    // Use a single brand color treatment for consistency
+    return 'text-[#8e191c] bg-[#8e191c]/10';
   };
 
   const handleReorder = async () => {
@@ -89,8 +103,28 @@ const OrderDetailsPage = () => {
     }
   };
 
+  // Do not block the page with a loader; render content once data arrives
   if (loading) {
-    return <LoaderOverlay text="Loading order details…" />;
+    return (
+      <div className="min-h-screen bg-white relative overflow-hidden">
+        <div className="hidden lg:block"><UserSidebar /></div>
+        <main id="details-content-wrapper" className="lg:ml-64 relative z-10 p-6 sm:p-10 max-w-6xl mx-auto">
+          {/* Skeleton similar to ProductList */}
+          <div className="animate-pulse space-y-8">
+            <div className="h-8 w-56 bg-zinc-200 rounded"></div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-24 bg-zinc-100 rounded-2xl border border-zinc-200" />
+              ))}
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="h-40 bg-zinc-100 rounded-2xl border border-zinc-200" />
+              <div className="h-40 bg-zinc-100 rounded-2xl border border-zinc-200" />
+            </div>
+          </div>
+        </main>
+      </div>
+    );
   }
 
   if (error) {
@@ -102,12 +136,13 @@ const OrderDetailsPage = () => {
           className="text-center"
         >
           <div className="text-6xl mb-4">❌</div>
-          <p className="text-red-600 text-lg font-semibold max-w-md">{error}</p>
+          <p className="text-[#8e191c] text-lg font-semibold max-w-md">{error}</p>
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => navigate(-1)}
-            className="mt-4 px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+            className="mt-4 px-6 py-2 text-white rounded-lg transition-colors"
+            style={{ backgroundColor: '#8e191c' }}
           >
             Go Back
           </motion.button>
@@ -127,47 +162,17 @@ const OrderDetailsPage = () => {
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-zinc-50 to-gray-100 relative overflow-hidden">
-        {/* Enhanced Background */}
-        <motion.div
-          animate={{
-            backgroundPosition: ['0% 0%', '100% 100%'],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            repeatType: 'reverse',
-            ease: 'linear'
-          }}
-          className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,0,128,0.08),transparent_40%),radial-gradient(circle_at_80%_80%,rgba(0,128,255,0.08),transparent_40%)] bg-[length:200%_200%] pointer-events-none"
-        />
-
-        {/* Floating Elements */}
-        <motion.div
-          animate={{ y: [0, -20, 0], rotate: [0, 10, 0] }}
-          transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute top-20 right-20 text-4xl opacity-20"
-        >
-          📋
-        </motion.div>
-        <motion.div
-          animate={{ y: [0, -15, 0], rotate: [0, -10, 0] }}
-          transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
-          className="absolute bottom-40 left-10 text-3xl opacity-20"
-        >
-          📦
-        </motion.div>
-
-        <UserSidebar />
+      <div className="min-h-screen bg-white relative overflow-hidden">
+        <div className="hidden lg:block"><UserSidebar /></div>
         
-        <main className="lg:ml-64 relative z-10 p-6 sm:p-10 max-w-6xl mx-auto">
+        <main id="details-content-wrapper" className="lg:ml-64 relative z-10 p-6 sm:p-10 max-w-6xl mx-auto">
           {/* Back Button */}
           <motion.button
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             whileHover={{ scale: 1.05, x: -5 }}
             whileTap={{ scale: 0.95 }}
-            className="mb-6 flex items-center gap-2 px-4 py-2 rounded-xl bg-white/60 backdrop-blur-md hover:bg-white/80 text-zinc-800 font-semibold border border-zinc-200 shadow-lg transition-all duration-200"
+            className="mb-6 flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-zinc-50 text-zinc-800 font-semibold border border-zinc-200 shadow-sm transition-all duration-200"
             onClick={() => navigate('/user/orders')}
           >
             <ArrowLeft className="w-4 h-4" />
@@ -178,7 +183,7 @@ const OrderDetailsPage = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 p-8 mb-8"
+            className="bg-white rounded-2xl shadow-md border border-zinc-200 p-8 mb-8"
           >
             <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-6">
               <div className="flex-1">
@@ -186,7 +191,8 @@ const OrderDetailsPage = () => {
                   <motion.div
                     whileHover={{ rotate: 360 }}
                     transition={{ duration: 0.5 }}
-                    className="p-3 bg-gradient-to-br from-red-500 to-pink-600 rounded-xl text-white shadow-lg"
+                    className="p-3 rounded-xl text-white shadow-lg"
+                    style={{ backgroundColor: '#8e191c' }}
                   >
                     <Package className="w-6 h-6" />
                   </motion.div>
@@ -206,12 +212,13 @@ const OrderDetailsPage = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <motion.div
                     whileHover={{ scale: 1.02 }}
-                    className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl border border-blue-200"
+                    className="flex items-center gap-3 p-3 bg-[#8e191c]/10 rounded-xl border"
+                    style={{ borderColor: '#e7bcbc' }}
                   >
-                    <Calendar className="w-5 h-5 text-blue-600" />
+                    <Calendar className="w-5 h-5" style={{ color: '#8e191c' }} />
                     <div>
-                      <p className="text-xs font-medium text-blue-600">Order Date</p>
-                      <p className="text-sm font-semibold text-blue-800">
+                      <p className="text-xs font-medium" style={{ color: '#8e191c' }}>Order Date</p>
+                      <p className="text-sm font-semibold" style={{ color: '#8e191c' }}>
                         {new Date(order.orderDate).toLocaleDateString(undefined, {
                           year: 'numeric',
                           month: 'short',
@@ -223,25 +230,27 @@ const OrderDetailsPage = () => {
 
                   <motion.div
                     whileHover={{ scale: 1.02 }}
-                    className="flex items-center gap-3 p-3 bg-green-50 rounded-xl border border-green-200"
+                    className="flex items-center gap-3 p-3 bg-[#8e191c]/10 rounded-xl border"
+                    style={{ borderColor: '#e7bcbc' }}
                   >
-                    <CreditCard className="w-5 h-5 text-green-600" />
+                    <CreditCard className="w-5 h-5" style={{ color: '#8e191c' }} />
                     <div>
-                      <p className="text-xs font-medium text-green-600">Total Amount</p>
-                      <p className="text-sm font-semibold text-green-800">
-                        د.إ{order.price?.toFixed(2)}
+                      <p className="text-xs font-medium" style={{ color: '#8e191c' }}>Total Amount</p>
+                      <p className="text-sm font-semibold" style={{ color: '#8e191c' }}>
+                        AED {order.price?.toFixed(2)}
                       </p>
                     </div>
                   </motion.div>
 
                   <motion.div
                     whileHover={{ scale: 1.02 }}
-                    className="flex items-center gap-3 p-3 bg-purple-50 rounded-xl border border-purple-200"
+                    className="flex items-center gap-3 p-3 bg-[#8e191c]/10 rounded-xl border"
+                    style={{ borderColor: '#e7bcbc' }}
                   >
-                    <User className="w-5 h-5 text-purple-600" />
+                    <User className="w-5 h-5" style={{ color: '#8e191c' }} />
                     <div>
-                      <p className="text-xs font-medium text-purple-600">Customer</p>
-                      <p className="text-sm font-semibold text-purple-800 truncate">
+                      <p className="text-xs font-medium" style={{ color: '#8e191c' }}>Customer</p>
+                      <p className="text-sm font-semibold truncate" style={{ color: '#8e191c' }}>
                         {order.cardName}
                       </p>
                     </div>
@@ -254,7 +263,7 @@ const OrderDetailsPage = () => {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
                   onClick={() => navigate(`/user/orders/${order.orderId}/receipt`)}
                 >
                   <Download className="w-4 h-4" />
@@ -263,8 +272,9 @@ const OrderDetailsPage = () => {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
-                  onClick={() => navigate(`/user/order-tracking?trackingNumber=${encodeURIComponent(order.trackingNumber || '')}`)}
+                   className="flex items-center gap-2 px-4 py-2 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+                   style={{ backgroundColor: '#8e191c' }}
+                  onClick={() => navigate(`/user/order-tracking?trackingNumber=${encodeURIComponent(order.trackingNumber || '')}`, { state: { fromOrderId: order.orderId } })}
                 >
                   <Truck className="w-4 h-4" />
                   Track Order
@@ -272,7 +282,7 @@ const OrderDetailsPage = () => {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+                   className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
                   onClick={() => setShowConfirm(true)}
                 >
                   <Package className="w-4 h-4" />
@@ -287,7 +297,7 @@ const OrderDetailsPage = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="flex flex-wrap gap-2 mb-8 bg-white/60 backdrop-blur-md rounded-2xl p-2 border border-white/20 shadow-lg"
+            className="flex flex-wrap gap-2 mb-8 bg-white rounded-2xl p-2 border border-zinc-200 shadow-sm"
           >
             {tabs.map((tab) => (
               <motion.button
@@ -297,9 +307,10 @@ const OrderDetailsPage = () => {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-200 ${
                   activeTab === tab.id
-                    ? 'bg-gradient-to-r from-red-500 to-pink-600 text-white shadow-lg'
-                    : 'text-zinc-600 hover:bg-white/60 hover:text-zinc-800'
+                    ? 'text-white shadow-lg'
+                    : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-800'
                 }`}
+                style={activeTab === tab.id ? { backgroundColor: '#8e191c' } : undefined}
               >
                 {tab.icon}
                 {tab.label}
@@ -336,7 +347,7 @@ const OrderDetailsPage = () => {
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="font-semibold text-zinc-700">Total:</span>
-                <span className="font-bold text-red-600">د.إ{order.price?.toFixed(2)}</span>
+                <span className="font-bold text-[#8e191c]">AED {order.price?.toFixed(2)}</span>
               </div>
               <div>
                 <div className="mt-2 space-y-2">
@@ -373,7 +384,7 @@ const OrderDetailsPage = () => {
                   <div key={i} className="flex items-center gap-2 bg-zinc-50 rounded-lg p-2">
                     <span className="text-xs font-medium text-black truncate max-w-[7rem]">{item.name}</span>
                     <span className="text-xs text-zinc-600 ml-auto">x{item.quantity}</span>
-                    <span className="text-xs text-zinc-600 ml-2">د.إ{item.price}</span>
+                    <span className="text-xs text-[#8e191c] ml-2">AED {item.price}</span>
                   </div>
                 ))}
                 {addedItems.length > 3 && (
@@ -414,27 +425,25 @@ const OverviewTab = ({ order }) => (
       className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 p-6"
     >
       <h3 className="text-lg font-semibold text-black mb-4 flex items-center gap-2">
-        <CreditCard className="w-5 h-5 text-red-600" />
+        <CreditCard className="w-5 h-5" style={{ color: '#8e191c' }} />
         Payment Information
       </h3>
       <div className="space-y-3">
         <div className="flex justify-between items-center">
           <span className="text-zinc-600">Payment Type:</span>
-          <span className="font-medium capitalize">{order.paymentType}</span>
+          <span className="font-medium capitalize" style={{ color: '#8e191c' }}>{order.paymentType}</span>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-zinc-600">Payment Status:</span>
           <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-            order.paymentStatus === 'paid' 
-              ? 'bg-green-100 text-green-700' 
-              : 'bg-yellow-100 text-yellow-700'
+            order.paymentStatus ? 'text-[#8e191c] bg-[#8e191c]/10' : 'text-zinc-600 bg-zinc-100'
           }`}>
             {order.paymentStatus}
           </span>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-zinc-600">Total Amount:</span>
-          <span className="font-bold text-lg text-red-600">د.إ{order.price?.toFixed(2)}</span>
+          <span className="font-bold text-lg" style={{ color: '#8e191c' }}>AED {order.price?.toFixed(2)}</span>
         </div>
       </div>
     </motion.div>
@@ -444,7 +453,7 @@ const OverviewTab = ({ order }) => (
       className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 p-6"
     >
       <h3 className="text-lg font-semibold text-black mb-4 flex items-center gap-2">
-        <Truck className="w-5 h-5 text-blue-600" />
+        <Truck className="w-5 h-5" style={{ color: '#8e191c' }} />
         Delivery Information
       </h3>
       <div className="space-y-3">
@@ -471,7 +480,7 @@ const OverviewTab = ({ order }) => (
         className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 p-6 lg:col-span-2"
       >
         <h3 className="text-lg font-semibold text-black mb-4 flex items-center gap-2">
-          <FileText className="w-5 h-5 text-green-600" />
+          <FileText className="w-5 h-5" style={{ color: '#8e191c' }} />
           Order Notes
         </h3>
         <p className="text-zinc-700 bg-zinc-50 p-4 rounded-xl">{order.notes}</p>
@@ -483,7 +492,7 @@ const OverviewTab = ({ order }) => (
 const ItemsTab = ({ order }) => (
   <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 p-6">
     <h3 className="text-lg font-semibold text-black mb-6 flex items-center gap-2">
-      <Package className="w-5 h-5 text-purple-600" />
+      <Package className="w-5 h-5" style={{ color: '#8e191c' }} />
       Order Items ({order.orderItems?.length || 0})
     </h3>
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -502,18 +511,20 @@ const ItemsTab = ({ order }) => (
                 src={item.image}
                 alt={item.name}
                 className="w-16 h-16 object-cover rounded-xl"
+                loading="lazy"
+                decoding="async"
                 onError={(e) => {
                   e.target.src = 'https://via.placeholder.com/64?text=No+Image';
                 }}
               />
-              <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold">
+              <div className="absolute -top-2 -right-2 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold" style={{ backgroundColor: '#8e191c' }}>
                 {item.quantity}
               </div>
             </div>
             <div className="flex-1">
               <h4 className="font-medium text-black text-sm mb-1 line-clamp-2">{item.name}</h4>
               <p className="text-xs text-zinc-600 mb-1">Quantity: {item.quantity}</p>
-              <p className="text-sm font-bold text-red-600">د.إ{item.price}</p>
+              <p className="text-sm font-bold" style={{ color: '#8e191c' }}>AED {item.price}</p>
             </div>
           </div>
         </motion.div>
@@ -529,7 +540,7 @@ const TrackingTab = ({ order, getTrackingStatusColor }) => (
       className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 p-6"
     >
       <h3 className="text-lg font-semibold text-black mb-4 flex items-center gap-2">
-        <Truck className="w-5 h-5 text-blue-600" />
+          <Truck className="w-5 h-5" style={{ color: '#8e191c' }} />
         Tracking Information
       </h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -553,10 +564,10 @@ const TrackingTab = ({ order, getTrackingStatusColor }) => (
       className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 p-6"
     >
       <h3 className="text-lg font-semibold text-black mb-4 flex items-center gap-2">
-        <Clock className="w-5 h-5 text-green-600" />
+          <Clock className="w-5 h-5" style={{ color: '#8e191c' }} />
         Tracking History
       </h3>
-      {order.trackingHistory?.length ? (
+          {order.trackingHistory?.length ? (
         <div className="space-y-4">
           {order.trackingHistory.map((history, index) => (
             <motion.div
@@ -607,7 +618,7 @@ const AddressesTab = ({ order }) => (
       className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 p-6"
     >
       <h3 className="text-lg font-semibold text-black mb-4 flex items-center gap-2">
-        <MapPin className="w-5 h-5 text-green-600" />
+          <MapPin className="w-5 h-5" style={{ color: '#8e191c' }} />
         {order.orderType === 'pickup' ? 'Pickup Address' : 'Shipping Address'}
       </h3>
       {order.orderType === 'pickup' ? (
@@ -656,7 +667,7 @@ const AddressesTab = ({ order }) => (
         className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 p-6"
       >
         <h3 className="text-lg font-semibold text-black mb-4 flex items-center gap-2">
-          <CreditCard className="w-5 h-5 text-blue-600" />
+          <CreditCard className="w-5 h-5" style={{ color: '#8e191c' }} />
           Billing Address
         </h3>
         {order.billingAddress ? (

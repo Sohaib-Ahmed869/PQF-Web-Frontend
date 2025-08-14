@@ -45,6 +45,30 @@ export default function Addresses() {
     fetchAddresses()
   }, [])
 
+  // Listen for sidebar width changes to adjust left margin dynamically
+  useEffect(() => {
+    const handler = (e) => {
+      const content = document.getElementById('content-wrapper')
+      if (!content) return
+      const width = e?.detail?.width
+      // On large screens, align content margin with sidebar width
+      if (window.innerWidth >= 1024) {
+        content.style.marginLeft = width || '16rem'
+      } else {
+        content.style.marginLeft = '0px'
+      }
+    }
+    window.addEventListener('sidebar:width', handler)
+    // Initialize with current width (expanded default)
+    handler({ detail: { width: '16rem' } })
+    const onResize = () => handler()
+    window.addEventListener('resize', onResize)
+    return () => {
+      window.removeEventListener('sidebar:width', handler)
+      window.removeEventListener('resize', onResize)
+    }
+  }, [])
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
     if (name === 'setBoth') {
@@ -197,12 +221,15 @@ export default function Addresses() {
 
   return (
     <div className="min-h-screen bg-white relative">
-      <UserSidebar />
-      <div className="flex-1 flex justify-center items-start p-8 relative z-10 ml-0 lg:ml-64 transition-all duration-300">
+      <div className="hidden lg:block"><UserSidebar /></div>
+      <div
+        id="content-wrapper"
+        className={`flex-1 flex justify-center items-start p-4 md:p-8 relative ${showForm ? 'z-[60]' : 'z-10'} ml-0 lg:ml-64 transition-all duration-300`}
+      >
         <div className="w-full max-w-6xl relative">
           <div className="relative z-10">
             {/* Header */}
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 space-y-4 lg:space-y-0">
+            <div className="flex flex-col items-start mb-8 space-y-4">
               <div>
                 <h1 className="text-4xl font-bold text-black mb-2">
                   Address
@@ -211,37 +238,37 @@ export default function Addresses() {
               </div>
               
               {/* Search and Filter */}
-              <div className="flex items-center space-x-4">
-                <div className="relative">
-                  <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-red-600 opacity-70" />
+              <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 sm:gap-4 w-full">
+                <div className="relative w-full sm:w-64 md:w-80 min-w-0">
+                  <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#8e191c] opacity-70" />
                   <input
                     type="text"
                     placeholder="Search addresses..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4 py-3 bg-white border border-red-600 rounded-xl text-black placeholder-black placeholder-opacity-40 focus:ring-2 focus:ring-red-600 focus:border-transparent transition-all duration-300 shadow-sm"
+                    className="w-full pl-10 pr-4 py-3 bg-white border border-[#8e191c] rounded-xl text-black placeholder-black placeholder-opacity-40 focus:ring-2 focus:ring-[#8e191c] focus:border-transparent transition-all duration-300 shadow-sm"
                   />
                 </div>
-                <div className="relative">
+                <div className="relative w-full sm:w-auto">
                   <button
                     onClick={() => setFilterDefault(!filterDefault)}
-                    className={`flex items-center space-x-2 px-4 py-3 rounded-xl transition-all duration-300 border border-red-600 shadow-sm font-semibold ${
+                    className={`w-full sm:w-auto flex items-center justify-center space-x-2 px-4 py-3 rounded-xl transition-all duration-300 border border-[#8e191c] shadow-sm font-semibold ${
                       filterDefault 
-                        ? 'bg-red-600 text-white' 
-                        : 'bg-white text-black hover:bg-red-100'
+                        ? 'bg-[#8e191c] text-white' 
+                        : 'bg-white text-black hover:bg-[#8e191c]/10'
                     }`}
                   >
                     <FaFilter />
-                    <span>Default Only</span>
+                    <span className="hidden sm:inline">Default Only</span>
                   </button>
                 </div>
 
                 <button
                   onClick={() => setShowForm(true)}
-                  className="group flex items-center space-x-2 px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 font-semibold"
+                  className="group w-full sm:w-auto flex items-center justify-center space-x-2 px-6 py-3 bg-[#8e191c] text-white rounded-xl hover:opacity-90 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 font-semibold"
                 >
                   <FaPlus className="group-hover:rotate-90 transition-transform duration-300 text-white" />
-                  <span className="text-white">Add Address</span>
+                  <span className="hidden sm:inline text-white">Add Address</span>
                 </button>
               </div>
             </div>
@@ -272,7 +299,7 @@ export default function Addresses() {
                 }}
               >
                 <div
-                  className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full relative border border-red-600 max-h-[90vh] overflow-y-auto custom-scrollbar"
+                  className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full relative border border-[#8e191c] max-h-[90vh] overflow-y-auto custom-scrollbar"
                   onClick={e => e.stopPropagation()}
                 >
                   {/* Close (cross) icon */}
@@ -293,7 +320,7 @@ export default function Addresses() {
                         setBoth: false
                       })
                     }}
-                    className="absolute top-4 right-4 text-black hover:text-red-600 text-2xl focus:outline-none"
+                    className="absolute top-4 right-4 text-black hover:text-[#8e191c] text-2xl focus:outline-none"
                     aria-label="Close"
                   >
                     <FaTimes />
@@ -313,7 +340,7 @@ export default function Addresses() {
                           value={formData.name}
                           onChange={handleChange}
                           placeholder="e.g., Home Base, Work Station"
-                          className="w-full px-4 py-3 bg-[#f6faef] border border-red-600 rounded-xl text-black placeholder-black placeholder-opacity-40 focus:ring-2 focus:ring-red-600 focus:border-transparent transition-all duration-300"
+                          className="w-full px-4 py-3 bg-[#f6faef] border border-[#8e191c] rounded-xl text-black placeholder-black placeholder-opacity-40 focus:ring-2 focus:ring-[#8e191c] focus:border-transparent transition-all duration-300"
                           required
                         />
                       </div>
@@ -328,7 +355,7 @@ export default function Addresses() {
                           value={formData.street}
                           onChange={handleChange}
                           placeholder="123 Quantum Street"
-                          className="w-full px-4 py-3 bg-[#f6faef] border border-red-600 rounded-xl text-black placeholder-black placeholder-opacity-40 focus:ring-2 focus:ring-red-600 focus:border-transparent transition-all duration-300"
+                          className="w-full px-4 py-3 bg-[#f6faef] border border-[#8e191c] rounded-xl text-black placeholder-black placeholder-opacity-40 focus:ring-2 focus:ring-[#8e191c] focus:border-transparent transition-all duration-300"
                           required
                         />
                       </div>
@@ -343,7 +370,7 @@ export default function Addresses() {
                           value={formData.city}
                           onChange={handleChange}
                           placeholder="Neo Tokyo"
-                          className="w-full px-4 py-3 bg-[#f6faef] border border-red-600 rounded-xl text-black placeholder-black placeholder-opacity-40 focus:ring-2 focus:ring-red-600 focus:border-transparent transition-all duration-300"
+                          className="w-full px-4 py-3 bg-[#f6faef] border border-[#8e191c] rounded-xl text-black placeholder-black placeholder-opacity-40 focus:ring-2 focus:ring-[#8e191c] focus:border-transparent transition-all duration-300"
                           required
                         />
                       </div>
@@ -358,7 +385,7 @@ export default function Addresses() {
                           value={formData.state}
                           onChange={handleChange}
                           placeholder="Cyber District"
-                          className="w-full px-4 py-3 bg-[#f6faef] border border-red-600 rounded-xl text-black placeholder-black placeholder-opacity-40 focus:ring-2 focus:ring-red-600 focus:border-transparent transition-all duration-300"
+                          className="w-full px-4 py-3 bg-[#f6faef] border border-[#8e191c] rounded-xl text-black placeholder-black placeholder-opacity-40 focus:ring-2 focus:ring-[#8e191c] focus:border-transparent transition-all duration-300"
                           required
                         />
                       </div>
@@ -373,7 +400,7 @@ export default function Addresses() {
                           value={formData.zipCode}
                           onChange={handleChange}
                           placeholder="00001"
-                          className="w-full px-4 py-3 bg-[#f6faef] border border-red-600 rounded-xl text-black placeholder-black placeholder-opacity-40 focus:ring-2 focus:ring-red-600 focus:border-transparent transition-all duration-300"
+                          className="w-full px-4 py-3 bg-[#f6faef] border border-[#8e191c] rounded-xl text-black placeholder-black placeholder-opacity-40 focus:ring-2 focus:ring-[#8e191c] focus:border-transparent transition-all duration-300"
                           required
                         />
                       </div>
@@ -388,7 +415,7 @@ export default function Addresses() {
                           value={formData.country}
                           onChange={handleChange}
                           placeholder="Digital Earth"
-                          className="w-full px-4 py-3 bg-[#f6faef] border border-red-600 rounded-xl text-black placeholder-black placeholder-opacity-40 focus:ring-2 focus:ring-red-600 focus:border-transparent transition-all duration-300"
+                          className="w-full px-4 py-3 bg-[#f6faef] border border-[#8e191c] rounded-xl text-black placeholder-black placeholder-opacity-40 focus:ring-2 focus:ring-[#8e191c] focus:border-transparent transition-all duration-300"
                           required
                         />
                       </div>
@@ -401,11 +428,11 @@ export default function Addresses() {
                           name="setDefaultShipping"
                           checked={formData.setDefaultShipping || formData.setBoth}
                           onChange={handleChange}
-                          className="w-5 h-5 text-red-600 bg-[#f6faef] border-red-600 rounded focus:ring-red-600 focus:ring-2"
+                          className="w-5 h-5 text-[#8e191c] bg-[#f6faef] border-[#8e191c] rounded focus:ring-[#8e191c] focus:ring-2"
                           disabled={formData.setBoth}
                         />
                         <label className="text-black flex items-center space-x-2">
-                          <FaStar className="text-red-600" />
+                          <FaStar className="text-[#8e191c]" />
                           <span>Set as default shipping address</span>
                         </label>
                       </div>
@@ -415,11 +442,11 @@ export default function Addresses() {
                           name="setDefaultBilling"
                           checked={formData.setDefaultBilling || formData.setBoth}
                           onChange={handleChange}
-                          className="w-5 h-5 text-red-600 bg-[#f6faef] border-red-600 rounded focus:ring-red-600 focus:ring-2"
+                          className="w-5 h-5 text-[#8e191c] bg-[#f6faef] border-[#8e191c] rounded focus:ring-[#8e191c] focus:ring-2"
                           disabled={formData.setBoth}
                         />
                         <label className="text-black flex items-center space-x-2">
-                          <FaStar className="text-red-600" />
+                          <FaStar className="text-[#8e191c]" />
                           <span>Set as default billing address</span>
                         </label>
                       </div>
@@ -429,10 +456,10 @@ export default function Addresses() {
                           name="setBoth"
                           checked={formData.setBoth}
                           onChange={handleChange}
-                          className="w-5 h-5 text-red-600 bg-[#f6faef] border-red-600 rounded focus:ring-red-600 focus:ring-2"
+                          className="w-5 h-5 text-[#8e191c] bg-[#f6faef] border-[#8e191c] rounded focus:ring-[#8e191c] focus:ring-2"
                         />
                         <label className="text-black flex items-center space-x-2">
-                          <FaStar className="text-red-600" />
+                          <FaStar className="text-[#8e191c]" />
                           <span>Set as default for both shipping & billing</span>
                         </label>
                       </div>
@@ -442,7 +469,7 @@ export default function Addresses() {
                       <button
                         type="submit"
                         onClick={handleSubmit}
-                        className="px-8 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 font-semibold"
+                        className="px-8 py-3 bg-[#8e191c] text-white rounded-xl hover:opacity-90 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 font-semibold"
                       >
                         <span className="text-white">{editingAddress ? 'Update Address' : 'Save Address'}</span>
                       </button>
@@ -454,28 +481,28 @@ export default function Addresses() {
 
             {/* Address Cards */}
             {!isLoading && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                 {filteredAddresses.map((address) => {
                   const isShipping = shippingAddress && address._id === shippingAddress.toString();
                   const isBilling = billingAddress && address._id === billingAddress.toString();
                   return (
                     <div
                       key={address.id}
-                      className={`group relative bg-white rounded-2xl p-6 border border-red-600 hover:border-black transition-all duration-500 hover:shadow-xl hover:scale-105 ${
+                      className={`group relative bg-white rounded-2xl p-6 border border-[#8e191c] hover:border-black transition-all duration-500 hover:shadow-xl hover:scale-105 ${
                         animatingCards.has(address.id) ? 'animate-pulse scale-110' : ''
                       }`}
                     >
                       {/* Glow effect */}
-                      <div className="absolute inset-0 bg-gradient-to-r from-black/10 to-red-600/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                      <div className="absolute inset-0 bg-gradient-to-r from-black/5 to-[#8e191c]/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                       <div className="relative z-10">
                         <div className="flex justify-between items-start mb-4">
                           <div>
                             <h3 className="text-xl font-bold text-black mb-2 flex items-center space-x-2">
-                              <FaMapMarkerAlt className="text-red-600" />
+                              <FaMapMarkerAlt className="text-[#8e191c]" />
                               <span>{address.name}</span>
                             </h3>
                             {(isShipping || isBilling) && (
-                              <span className="inline-flex items-center space-x-1 px-3 py-1 text-xs bg-red-600 text-white rounded-full font-medium">
+                              <span className="inline-flex items-center space-x-1 px-3 py-1 text-xs bg-[#8e191c] text-white rounded-full font-medium">
                                 <FaStar />
                                 <span>
                                   {isShipping && isBilling
@@ -487,16 +514,16 @@ export default function Addresses() {
                               </span>
                             )}
                           </div>
-                          <div className="flex space-x-2">
+                          <div className="flex flex-wrap gap-2">
                             <button
                               onClick={() => handleEdit(address)}
-                              className="p-2 text-black hover:text-red-600 hover:bg-[#f6faef] rounded-lg transition-all duration-300"
+                              className="p-2 text-black hover:text-[#8e191c] hover:bg-[#f6faef] rounded-lg transition-all duration-300"
                             >
                               <FaEdit />
                             </button>
                             <button
                               onClick={() => handleDelete(address.id)}
-                              className="p-2 text-black hover:text-red-600 hover:bg-[#f6faef] rounded-lg transition-all duration-300"
+                              className="p-2 text-black hover:text-[#8e191c] hover:bg-[#f6faef] rounded-lg transition-all duration-300"
                             >
                               <FaTrash />
                             </button>
@@ -504,27 +531,27 @@ export default function Addresses() {
                             {shippingAddress !== address._id && (
                               <button
                                 onClick={() => handleSetShipping(address._id)}
-                                className="p-2 text-red-600 hover:text-white hover:bg-red-600 border border-red-600 rounded-lg transition-all duration-300"
+                                className="px-3 py-2 text-[#8e191c] hover:text-white hover:bg-[#8e191c] border border-[#8e191c] rounded-lg transition-all duration-300"
                                 title="Set as shipping address"
                               >
-                                <span>Ship</span>
+                                <span className="text-sm">Ship</span>
                               </button>
                             )}
                             {/* Set as billing */}
                             {billingAddress !== address._id && (
                               <button
                                 onClick={() => handleSetBilling(address._id)}
-                                className="p-2 text-red-600 hover:text-white hover:bg-red-600 border border-red-600 rounded-lg transition-all duration-300"
+                                className="px-3 py-2 text-[#8e191c] hover:text-white hover:bg-[#8e191c] border border-[#8e191c] rounded-lg transition-all duration-300"
                                 title="Set as billing address"
                               >
-                                <span>Bill</span>
+                                <span className="text-sm">Bill</span>
                               </button>
                             )}
                             {/* Set as both */}
                             {(shippingAddress !== address._id || billingAddress !== address._id) && (
                               <button
                                 onClick={() => handleSetBoth(address._id)}
-                                className="p-2 text-red-600 hover:text-white hover:bg-red-600 border border-red-600 rounded-lg transition-all duration-300"
+                                className="px-3 py-2 text-[#8e191c] hover:text-white hover:bg-[#8e191c] border border-[#8e191c] rounded-lg transition-all duration-300"
                                 title="Set as shipping & billing address"
                               >
                                 <FaStar />
@@ -534,7 +561,7 @@ export default function Addresses() {
                         </div>
                         <div className="space-y-2 text-black">
                           <p className="flex items-center space-x-2">
-                            <span className="w-2 h-2 bg-red-600 rounded-full"></span>
+                            <span className="w-2 h-2 bg-[#8e191c] rounded-full"></span>
                             <span>{address.street}</span>
                           </p>
                           <p className="flex items-center space-x-2">
@@ -542,12 +569,12 @@ export default function Addresses() {
                             <span>{address.city}, {address.state} {address.zipCode}</span>
                           </p>
                           <p className="flex items-center space-x-2">
-                            <FaGlobe className="text-red-600" />
+                            <FaGlobe className="text-[#8e191c]" />
                             <span>{address.country}</span>
                           </p>
-                          <div className="flex space-x-2 mt-2">
+                           <div className="flex flex-wrap gap-2 mt-2">
                             {shippingAddress === address._id && (
-                              <span className="inline-flex items-center space-x-1 px-2 py-1 text-xs bg-red-600 text-white rounded-full font-medium">Ship</span>
+                              <span className="inline-flex items-center space-x-1 px-2 py-1 text-xs bg-[#8e191c] text-white rounded-full font-medium">Ship</span>
                             )}
                             {billingAddress === address._id && (
                               <span className="inline-flex items-center space-x-1 px-2 py-1 text-xs bg-black text-white rounded-full font-medium">Bill</span>
@@ -563,7 +590,7 @@ export default function Addresses() {
 
             {!isLoading && filteredAddresses.length === 0 && (
               <div className="text-center py-12">
-                <div className="text-6xl text-red-600 mb-4">🏠</div>
+                <div className="text-6xl text-[#8e191c] mb-4">🏠</div>
                 <h3 className="text-xl font-semibold text-black mb-2">No addresses found</h3>
                 <p className="text-black mb-6">
                   {searchTerm || filterDefault ? 'Try adjusting your search or filters' : 'Add your first address to get started'}
@@ -571,7 +598,7 @@ export default function Addresses() {
                 {!searchTerm && !filterDefault && (
                   <button
                     onClick={() => setShowForm(true)}
-                    className="px-6 py-3 bg-red-600 rounded-xl hover:bg-red-700 transition-all duration-300 shadow-lg font-semibold text-white"
+                    className="px-6 py-3 bg-[#8e191c] rounded-xl hover:opacity-90 transition-all duration-300 shadow-lg font-semibold text-white"
                   >
                     <span className="text-white">Add Your First Address</span>
                   </button>

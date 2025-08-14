@@ -38,33 +38,33 @@ const TRACKING_STATUSES = [
     key: 'processing', 
     label: 'Processing', 
     icon: <Timer className="w-5 h-5" />, 
-    color: 'from-yellow-400 to-yellow-500', 
-    bgColor: 'bg-yellow-100', 
-    textColor: 'text-yellow-600'
+    color: 'from-[#8e191c] to-[#b02a2e]', 
+    bgColor: 'bg-[#fbeaea]', 
+    textColor: 'text-[#8e191c]'
   },
   { 
     key: 'shipped', 
     label: 'Shipped', 
     icon: <Package className="w-5 h-5" />,
-    color: 'from-orange-500 to-orange-600',
-    bgColor: 'bg-orange-100',
-    textColor: 'text-orange-600'
+    color: 'from-[#8e191c] to-[#b02a2e]',
+    bgColor: 'bg-[#fbeaea]',
+    textColor: 'text-[#8e191c]'
   },
   { 
     key: 'in transit', 
     label: 'On the Way', 
     icon: <Truck className="w-5 h-5" />, 
-    color: 'from-purple-500 to-purple-600',
-    bgColor: 'bg-purple-100',
-    textColor: 'text-purple-600'
+    color: 'from-[#8e191c] to-[#b02a2e]',
+    bgColor: 'bg-[#fbeaea]',
+    textColor: 'text-[#8e191c]'
   },
   { 
     key: 'delivered', 
     label: 'Delivered', 
     icon: <Home className="w-5 h-5" />, 
-    color: 'from-green-500 to-green-600',
-    bgColor: 'bg-green-100',
-    textColor: 'text-green-600'
+    color: 'from-[#8e191c] to-[#b02a2e]',
+    bgColor: 'bg-[#fbeaea]',
+    textColor: 'text-[#8e191c]'
   }
 ];
 
@@ -170,7 +170,7 @@ const OrderTracking = ({ trackingNumber: trackingNumberProp }) => {
           <div className="absolute left-8 right-8 h-1 bg-gray-200 z-0" style={{ top: '40%', transform: 'translateY(-50%)' }} />
           {/* Progress connecting line */}
           <div
-            className="absolute left-8 h-1 bg-gradient-to-r from-green-400 to-green-500 z-0 transition-all duration-1000"
+            className="absolute left-8 h-1 bg-gradient-to-r from-[#8e191c] to-[#b02a2e] z-0 transition-all duration-1000"
             style={{
               top: '40%',
               width: progressPercent + '%',
@@ -243,34 +243,41 @@ const OrderTracking = ({ trackingNumber: trackingNumberProp }) => {
               initial={{ x: -50, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               transition={{ delay: idx * 0.15 }}
-              className={`flex items-center p-4 rounded-2xl border-2 transition-all duration-300 ${
+              className={`relative flex items-center p-4 rounded-2xl border-2 transition-all duration-300 ${
                 idx <= currentIdx 
                   ? `${stat.bgColor} border-transparent shadow-md` 
                   : 'bg-gray-50 border-gray-200'
               }`}
             >
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                idx <= currentIdx 
-                  ? `bg-gradient-to-br ${stat.color} text-white shadow-lg` 
-                  : 'bg-gray-200 text-gray-400'
-              }`}>
-                {idx < currentIdx ? (
-                  <CheckCircle className="w-5 h-5" />
-                ) : idx === currentIdx ? (
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                  >
-                    {stat.icon}
-                  </motion.div>
-                ) : (
-                  stat.icon
+              <div className="relative mr-4">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                  idx <= currentIdx 
+                    ? `bg-gradient-to-br ${stat.color} text-white shadow-lg` 
+                    : 'bg-gray-200 text-gray-400'
+                }`}>
+                  {idx < currentIdx ? (
+                    <CheckCircle className="w-5 h-5" />
+                  ) : idx === currentIdx ? (
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                    >
+                      {stat.icon}
+                    </motion.div>
+                  ) : (
+                    stat.icon
+                  )}
+                </div>
+                {idx < (TRACKING_STATUSES.length - 1) && (
+                  <div
+                    className={`absolute left-1/2 -translate-x-1/2 top-12 w-1 rounded-full ${
+                      idx < currentIdx ? 'bg-[#8e191c]' : 'bg-gray-200'
+                    } h-10`}
+                  />
                 )}
               </div>
-              <div className="ml-4 flex-1">
-                <p className={`font-semibold ${idx <= currentIdx ? stat.textColor : 'text-gray-500'}`}>
-                  {stat.label}
-                </p>
+              <div className="flex-1">
+                <p className={`font-semibold ${idx <= currentIdx ? stat.textColor : 'text-gray-500'}`}>{stat.label}</p>
                 {idx === currentIdx && (
                   <p className="text-sm text-gray-600 mt-1">Currently in progress...</p>
                 )}
@@ -283,76 +290,29 @@ const OrderTracking = ({ trackingNumber: trackingNumberProp }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#fbeaea] via-[#fff0f0] to-[#fbeaea] relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-[#fbeaea] via-white to-[#fbeaea] relative overflow-hidden">
       {/* Back to Orders Button */}
       <button
-        className="absolute top-6 left-6 flex items-center gap-2 px-4 py-2 rounded-xl bg-white/60 backdrop-blur-md hover:bg-white/80 text-zinc-800 font-semibold border border-zinc-200 shadow-lg transition-all duration-200 z-20"
+        className="fixed top-4 left-4 flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-white/70 backdrop-blur-md hover:bg-white/80 text-zinc-800 font-semibold border border-zinc-200 shadow-lg transition-all duration-200 z-30"
         onClick={() => {
-          if (trackingData && trackingData.orderId) {
-            navigate(`/user/orders/${trackingData.orderId}`);
-          } else {
-            navigate('/user/orders');
-          }
+          const stateOrderId = location.state?.fromOrderId;
+          const orderId = stateOrderId || trackingData?.orderId;
+          if (orderId) return navigate(`/user/orders/${orderId}`);
+          navigate('/user/orders');
         }}
-        disabled={!trackingData || !trackingData.orderId}
+        disabled={!(location.state?.fromOrderId || (trackingData && trackingData.orderId))}
       >
         <ArrowLeft className="w-4 h-4" />
         Back to Order Details
       </button>
-      {/* Animated Background Elements */}
-      <motion.div
-        animate={{
-          y: [0, -20, 0],
-          rotate: [0, 5, 0]
-        }}
-        transition={{
-          duration: 6,
-          repeat: Infinity,
-          ease: "easeInOut"
-        }}
-        className="absolute top-20 right-20 text-6xl opacity-20"
-      >
-        🍕
-      </motion.div>
-      
-      <motion.div
-        animate={{
-          y: [0, -15, 0],
-          rotate: [0, -5, 0]
-        }}
-        transition={{
-          duration: 8,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 2
-        }}
-        className="absolute bottom-40 left-10 text-5xl opacity-20"
-      >
-        🚚
-      </motion.div>
+      {/* Background animations removed for a cleaner look */}
 
-      <motion.div
-        animate={{
-          scale: [1, 1.1, 1],
-          rotate: [0, 10, 0]
-        }}
-        transition={{
-          duration: 10,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 4
-        }}
-        className="absolute top-1/2 left-1/4 text-4xl opacity-15"
-      >
-        🎯
-      </motion.div>
-
-      <div className="relative z-10 container mx-auto px-4 py-8 max-w-4xl">
+      <div className="relative z-10 container mx-auto px-4 pt-16 py-8 max-w-4xl">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -30 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-8"
+          className="text-center mb-8 mt-4"
         >
           <div className="flex items-center justify-center gap-3 mb-4">
             <motion.div
@@ -374,17 +334,17 @@ const OrderTracking = ({ trackingNumber: trackingNumberProp }) => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-6 mb-8"
+          className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-4 sm:p-6 mb-8"
         >
-          <div onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <div onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+            <div className="relative flex-1 min-w-0">
+              <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8e191c]" />
               <input
                 type="text"
                 placeholder="Enter Order ID or Tracking Number (e.g., TRK-789456123)"
                 value={trackingNumber}
                 onChange={e => setTrackingNumber(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-gray-200 focus:border-[#8e191c] focus:outline-none transition-all duration-200 text-lg"
+                className="w-full pl-12 pr-4 py-3 sm:py-4 rounded-2xl border-2 border-gray-200 focus:border-[#8e191c] focus:outline-none transition-all duration-200 text-base sm:text-lg"
               />
             </div>
             <motion.button
@@ -393,7 +353,7 @@ const OrderTracking = ({ trackingNumber: trackingNumberProp }) => {
               onClick={handleSubmit}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="px-8 py-4 bg-gradient-to-r from-[#8e191c] to-[#b02a2e] text-white rounded-2xl font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-[#8e191c] hover:opacity-90 text-white rounded-2xl font-bold text-base sm:text-lg shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <div className="flex items-center gap-2">
@@ -516,7 +476,11 @@ const OrderTracking = ({ trackingNumber: trackingNumberProp }) => {
             transition={{ delay: 0.4 }}
             className="text-center py-12"
           >
-            <div className="text-8xl mb-6">🔍</div>
+            <div className="mb-6 flex items-center justify-center">
+              <div className="w-24 h-24 rounded-full bg-[#8e191c]/10 flex items-center justify-center shadow-lg">
+                <Search className="w-12 h-12 text-[#8e191c]" />
+              </div>
+            </div>
             <h3 className="text-2xl font-bold text-gray-700 mb-4">Ready to track your order?</h3>
             <p className="text-gray-600 text-lg max-w-md mx-auto">
               Enter your tracking number above to see real-time updates and estimated delivery time.

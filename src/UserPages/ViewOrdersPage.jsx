@@ -7,7 +7,7 @@ import api from "../services/api";
 import webService from '../services/Website/WebService';
 import ConfirmModal from '../components/ConfirmModal';
 import { useCart } from '../context/CartContext';
-import LoaderOverlay from '../components/LoaderOverlay';
+// Removed LoaderOverlay per request – no blocking loader during data fetch
 import { useAuth } from "../context/AuthContext";
 
 /**
@@ -112,6 +112,28 @@ const ViewOrdersPage = () => {
     };
     getOrders();
   }, [navigate]);
+
+  // Adjust left margin when sidebar collapses/expands (same approach as Addresses page)
+  useEffect(() => {
+    const handler = (e) => {
+      const content = document.getElementById('content-wrapper');
+      if (!content) return;
+      const width = e?.detail?.width;
+      if (window.innerWidth >= 1024) {
+        content.style.marginLeft = width || '16rem';
+      } else {
+        content.style.marginLeft = '0px';
+      }
+    };
+    window.addEventListener('sidebar:width', handler);
+    handler({ detail: { width: '16rem' } });
+    const onResize = () => handler();
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('sidebar:width', handler);
+      window.removeEventListener('resize', onResize);
+    };
+  }, []);
 
   // Validate dispute form
   const validateDisputeForm = () => {
@@ -263,7 +285,54 @@ const ViewOrdersPage = () => {
   };
 
   if (loading)
-    return <LoaderOverlay text="Fetching your orders…" />;
+    return (
+      <div className="min-h-screen bg-white relative overflow-hidden">
+        <div className="hidden lg:block"><UserSidebar /></div>
+        <main id="content-wrapper" className="lg:ml-64 relative z-10 p-6 sm:p-10 max-w-7xl mx-auto min-h-[60vh]">
+          {/* Skeleton shimmer similar to ProductList */}
+          <div className="animate-pulse space-y-8">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+              <div className="space-y-3 w-full sm:w-auto">
+                <div className="h-8 w-48 bg-zinc-200 rounded"></div>
+                <div className="h-4 w-64 bg-zinc-200 rounded"></div>
+              </div>
+              <div className="relative w-full sm:w-72">
+                <div className="h-11 w-full bg-zinc-200 rounded-2xl"></div>
+              </div>
+            </div>
+
+            {/* KPI skeleton */}
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="bg-zinc-100 rounded-2xl p-4 border border-zinc-200 shadow">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-white rounded-xl" />
+                    <div className="space-y-2 flex-1">
+                      <div className="h-3 w-24 bg-zinc-200 rounded"></div>
+                      <div className="h-4 w-16 bg-zinc-200 rounded"></div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Filters skeleton */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="h-10 bg-zinc-200 rounded-xl" />
+              <div className="h-10 bg-zinc-200 rounded-xl" />
+            </div>
+
+            {/* Orders grid skeleton */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="rounded-2xl border border-zinc-200 bg-white shadow p-4 h-48" />
+              ))}
+            </div>
+          </div>
+        </main>
+      </div>
+    );
 
   if (error)
     return (
@@ -282,30 +351,10 @@ const ViewOrdersPage = () => {
     );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-zinc-50 to-gray-100 relative overflow-hidden">
-      <motion.div
-        variants={shimmer}
-        animate="animate"
-        className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,0,128,0.08),transparent_40%),radial-gradient(circle_at_80%_80%,rgba(0,128,255,0.08),transparent_40%),radial-gradient(circle_at_50%_50%,rgba(255,165,0,0.05),transparent_50%)] bg-[length:400%_400%] pointer-events-none"
-      />
-      <motion.div variants={floatingAnimation} animate="animate" className="absolute top-20 right-20 text-4xl opacity-20">
-        📦
-      </motion.div>
-      <motion.div 
-        variants={floatingAnimation} 
-        animate="animate" 
-        transition={{ delay: 1 }}
-        className="absolute bottom-32 left-20 text-3xl opacity-20"
-      >
-        🚚
-      </motion.div>
+    <div className="min-h-screen bg-white relative overflow-hidden">
+      <div className="hidden lg:block"><UserSidebar /></div>
 
-      <UserSidebar />
-
-      <main className="lg:ml-64 relative z-10 p-6 sm:p-10 max-w-7xl mx-auto min-h-[60vh]">
-        {loading && (
-          <LoaderOverlay text="Fetching your orders…" />
-        )}
+      <main id="content-wrapper" className="lg:ml-64 relative z-10 p-6 sm:p-10 max-w-7xl mx-auto min-h-[60vh]">
         {!loading && (
           <>
             {/* Enhanced Header */}
@@ -327,13 +376,13 @@ const ViewOrdersPage = () => {
                   whileHover={{ scale: 1.02 }}
                   className="relative w-full sm:w-72"
                 >
-                  <Search className="absolute w-5 h-5 top-1/2 left-4 -translate-y-1/2 text-red-500/80" />
+                  <Search className="absolute w-5 h-5 top-1/2 left-4 -translate-y-1/2 text-[#8e191c]/80" />
                   <input
                     aria-label="Search orders"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Search orders…"
-                    className="w-full pl-12 pr-4 py-3 rounded-2xl bg-white/60 backdrop-blur-md border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-black placeholder:text-zinc-500 shadow-lg transition-all duration-200"
+                    className="w-full pl-12 pr-4 py-3 rounded-2xl bg-white border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-[#8e191c] focus:border-transparent text-black placeholder:text-zinc-500 shadow-sm transition-all duration-200"
                   />
                 </motion.div>
               </div>
@@ -343,7 +392,7 @@ const ViewOrdersPage = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8"
+                className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8"
               >
                 <StatCard
                   icon={<Package className="w-6 h-6" />}
@@ -354,13 +403,13 @@ const ViewOrdersPage = () => {
                 <StatCard
                   icon={<DollarSign className="w-6 h-6" />}
                   title="Total Spent"
-                  value={`د.إ${stats.totalSpent.toFixed(2)}`}
+                  value={`AED ${stats.totalSpent.toFixed(2)}`}
                   color="green"
                 />
                 <StatCard
                   icon={<TrendingUp className="w-6 h-6" />}
                   title="Avg Order"
-                  value={`د.إ${stats.avgOrderValue.toFixed(2)}`}
+                  value={`AED ${stats.avgOrderValue.toFixed(2)}`}
                   color="purple"
                 />
                 <StatCard
@@ -369,12 +418,14 @@ const ViewOrdersPage = () => {
                   value={stats.paidOrders}
                   color="yellow"
                 />
-                <StatCard
-                  icon={<Clock className="w-6 h-6" />}
-                  title="Recent (30d)"
-                  value={stats.recentOrders}
-                  color="red"
-                />
+                <div className="hidden sm:block">
+                  <StatCard
+                    icon={<Clock className="w-6 h-6" />}
+                    title="Recent (30d)"
+                    value={stats.recentOrders}
+                    color="red"
+                  />
+                </div>
               </motion.div>
 
               {/* Filters */}
@@ -382,35 +433,41 @@ const ViewOrdersPage = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
-                className="flex flex-wrap gap-4 items-center"
+                className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 sm:gap-4 w-full"
               >
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
                   <Filter className="w-4 h-4 text-zinc-600" />
                   <span className="text-sm font-medium text-zinc-700">Filter:</span>
-                  <select
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                    className="px-3 py-1 rounded-lg bg-white/60 backdrop-blur-md border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                  >
-                    <option value="all">All Status</option>
-                    <option value="paid">Paid</option>
-                    <option value="pending">Pending</option>
-                  </select>
+                  <div className="w-full sm:min-w-[140px]">
+                    <OrdersCustomSelect
+                      value={filterStatus}
+                      onChange={setFilterStatus}
+                      options={[
+                        { value: 'all', label: 'All Status' },
+                        { value: 'paid', label: 'Paid' },
+                        { value: 'pending', label: 'Pending' }
+                      ]}
+                      placeholder="All Status"
+                    />
+                  </div>
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
                   <Calendar className="w-4 h-4 text-zinc-600" />
                   <span className="text-sm font-medium text-zinc-700">Sort:</span>
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                    className="px-3 py-1 rounded-lg bg-white/60 backdrop-blur-md border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                  >
-                    <option value="newest">Newest First</option>
-                    <option value="oldest">Oldest First</option>
-                    <option value="highest">Highest Amount</option>
-                    <option value="lowest">Lowest Amount</option>
-                  </select>
+                  <div className="w-full sm:min-w-[160px]">
+                    <OrdersCustomSelect
+                      value={sortBy}
+                      onChange={setSortBy}
+                      options={[
+                        { value: 'newest', label: 'Newest First' },
+                        { value: 'oldest', label: 'Oldest First' },
+                        { value: 'highest', label: 'Highest Amount' },
+                        { value: 'lowest', label: 'Lowest Amount' }
+                      ]}
+                      placeholder="Newest First"
+                    />
+                  </div>
                 </div>
               </motion.div>
             </motion.div>
@@ -424,15 +481,15 @@ const ViewOrdersPage = () => {
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9 }}
                 >
-                  <EnhancedEmptyState search={!!search} />
+                   <EnhancedEmptyState search={!!search} />
                 </motion.div>
               ) : (
-                <motion.section 
+                 <motion.section 
                   key="orders"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8"
+                   className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6"
                 >
                   {processedOrders.map((order, index) => (
                     <motion.div
@@ -463,14 +520,14 @@ const ViewOrdersPage = () => {
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="font-semibold text-zinc-700">Total:</span>
-              <span className="font-bold text-red-600">د.إ{selectedOrder.price?.toFixed(2)}</span>
+              <span className="font-bold text-[#8e191c]">AED {selectedOrder.price?.toFixed(2)}</span>
             </div>
             <div>
               <div className="mt-2 space-y-2">
                 {selectedOrder.orderItems?.slice(0,2).map((item, i) => (
                   <div key={item._id || i} className="flex items-center gap-2 bg-zinc-50 rounded-lg p-2">
                     {item.image && (
-                      <img src={item.image} alt={item.name} className="w-8 h-8 object-cover rounded" />
+                      <img src={item.image} alt={item.name} className="w-8 h-8 object-cover rounded" loading="lazy" decoding="async" />
                     )}
                     <span className="text-xs font-medium text-black truncate max-w-[7rem]">{item.name}</span>
                     <span className="text-xs text-zinc-600 ml-auto">x{item.quantity}</span>
@@ -494,13 +551,13 @@ const ViewOrdersPage = () => {
         title="Reorder Successful"
         message={(
           <div className="space-y-3">
-            <div className="text-green-600 font-bold text-lg">Items added to your cart!</div>
+                <div className="text-green-600 font-bold text-lg">Items added to your cart!</div>
             <div className="space-y-2">
               {addedItems.slice(0, 3).map((item, i) => (
                 <div key={i} className="flex items-center gap-2 bg-zinc-50 rounded-lg p-2">
                   <span className="text-xs font-medium text-black truncate max-w-[7rem]">{item.name}</span>
                   <span className="text-xs text-zinc-600 ml-auto">x{item.quantity}</span>
-                  <span className="text-xs text-zinc-600 ml-2">د.إ{item.price}</span>
+                  <span className="text-xs text-zinc-600 ml-2">AED {item.price}</span>
                 </div>
               ))}
               {addedItems.length > 3 && (
@@ -515,12 +572,12 @@ const ViewOrdersPage = () => {
       />
         {/* Dispute Modal */}
         {showDisputeModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
               <div className="flex items-center justify-between p-6 border-b border-gray-200">
                 <div className="flex items-center gap-3">
-                  <div className="bg-red-100 p-2 rounded-xl">
-                    <AlertTriangle className="w-6 h-6 text-red-600" />
+                    <div className="bg-[#8e191c]/10 p-2 rounded-xl">
+                      <AlertTriangle className="w-6 h-6" style={{ color: '#8e191c' }} />
                   </div>
                   <h2 className="text-xl font-bold text-gray-900">Create Dispute</h2>
                 </div>
@@ -540,7 +597,7 @@ const ViewOrdersPage = () => {
                       type="email"
                       value={disputeForm.email}
                       onChange={(e) => setDisputeForm(prev => ({ ...prev, email: e.target.value }))}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${disputeFormErrors.email ? 'border-red-500' : ''}`}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#8e191c] focus:border-[#8e191c] ${disputeFormErrors.email ? 'border-red-500' : ''}`}
                       placeholder="Your email address"
                     />
                     {disputeFormErrors.email && (
@@ -553,7 +610,7 @@ const ViewOrdersPage = () => {
                     <select
                       value={disputeForm.category}
                       onChange={(e) => setDisputeForm(prev => ({ ...prev, category: e.target.value }))}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${disputeFormErrors.category ? 'border-red-500' : ''}`}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#8e191c] focus:border-[#8e191c] ${disputeFormErrors.category ? 'border-red-500' : ''}`}
                     >
                       <option value="">Select a category</option>
                       <option value="Wrong item received">Wrong item received</option>
@@ -574,7 +631,7 @@ const ViewOrdersPage = () => {
                       value={disputeForm.description}
                       onChange={(e) => setDisputeForm(prev => ({ ...prev, description: e.target.value }))}
                       rows={4}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${disputeFormErrors.description ? 'border-red-500' : ''}`}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#8e191c] focus:border-[#8e191c] ${disputeFormErrors.description ? 'border-red-500' : ''}`}
                       placeholder="Please describe the issue in detail..."
                     />
                     {disputeFormErrors.description && (
@@ -594,7 +651,7 @@ const ViewOrdersPage = () => {
                 <button
                   onClick={() => handleCreateDispute(selectedOrder?.orderId)}
                   disabled={processingAction || !disputeForm.email || !disputeForm.category || !disputeForm.description || disputeForm.description.trim().length < 10}
-                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                  className="px-4 py-2 text-sm font-medium text-white bg-[#8e191c] rounded-lg hover:opacity-90 transition-colors flex items-center gap-2 disabled:opacity-50"
                 >
                   {processingAction ? 'Creating...' : 'Create Dispute'}
                 </button>
@@ -627,19 +684,12 @@ const Shell = ({ children }) => (
   </div>
 );
 
-const StatCard = ({ icon, title, value, color }) => {
-  const colorClasses = {
-    blue: "from-blue-500/20 to-blue-600/20 text-blue-700 border-blue-200",
-    green: "from-green-500/20 to-green-600/20 text-green-700 border-green-200",
-    purple: "from-purple-500/20 to-purple-600/20 text-purple-700 border-purple-200",
-    yellow: "from-yellow-500/20 to-yellow-600/20 text-yellow-700 border-yellow-200",
-    red: "from-red-500/20 to-red-600/20 text-red-700 border-red-200"
-  };
-
+const StatCard = ({ icon, title, value }) => {
   return (
     <motion.div
       whileHover={{ scale: 1.05, y: -5 }}
-      className={`bg-gradient-to-br ${colorClasses[color]} backdrop-blur-md border rounded-2xl p-4 shadow-lg`}
+      className="bg-gradient-to-br from-[#8e191c]/10 to-[#8e191c]/15 backdrop-blur-md border rounded-2xl p-4 shadow-lg"
+      style={{ borderColor: '#e7bcbc' }}
     >
       <div className="flex items-center gap-3">
         <div className="p-2 bg-white/50 rounded-xl">
@@ -647,10 +697,53 @@ const StatCard = ({ icon, title, value, color }) => {
         </div>
         <div>
           <p className="text-xs font-medium opacity-80">{title}</p>
-          <p className="text-lg font-bold">{value}</p>
+          <p className="text-lg font-bold text-zinc-800">{value}</p>
         </div>
       </div>
     </motion.div>
+  );
+};
+
+// Lightweight custom select used in Orders page, modeled after ProductList's dropdown feel
+const OrdersCustomSelect = ({ value, onChange, options, placeholder }) => {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const selected = options.find(o => o.value === value);
+  React.useEffect(() => {
+    const handle = (e) => {
+      if (!e.target.closest?.('.orders-select')) setIsOpen(false);
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, []);
+  return (
+    <div className="relative orders-select">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-3 py-2 rounded-xl border border-zinc-200 bg-white text-gray-800 font-medium focus:outline-none focus:ring-2 focus:ring-[#8e191c] text-sm text-left flex items-center justify-between"
+      >
+        <span>{selected ? selected.label : placeholder}</span>
+        <svg className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="#8e191c" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {isOpen && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto">
+          {options.map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => { onChange(opt.value); setIsOpen(false); }}
+              className={`w-full px-3 py-2 text-left transition-colors duration-150 first:rounded-t-xl last:rounded-b-xl ${
+                value === opt.value ? 'bg-[#8e191c] text-white' : 'hover:bg-[#8e191c]/10 text-gray-800'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -737,15 +830,16 @@ const EnhancedOrderCard = ({ order, onReorder, onDispute }) => {
       onHoverStart={() => setIsHovered(true)}
       onHoverEnd={() => setIsHovered(false)}
       transition={{ type: "spring", stiffness: 260, damping: 20 }}
-      className="relative rounded-2xl overflow-hidden border border-transparent bg-white/60 shadow-lg hover:border-red-500 group h-full flex flex-col min-h-[420px] cursor-pointer"
-      style={{ transformStyle: "preserve-3d" }}
+      className="relative rounded-2xl overflow-hidden border bg-white/60 shadow-lg group h-full flex flex-col min-h-[260px] sm:min-h-[420px] cursor-pointer"
+      style={{ transformStyle: "preserve-3d", borderColor: '#e7bcbc' }}
+      onClick={() => navigate(`/user/orders/${order.orderId}`)}
     >
       {/* Enhanced Glow Effect */}
       <motion.div
         // Removed inside hover effect (glow)
       />
 
-      <div className="relative z-10 p-6 space-y-3 text-sm text-black/90 flex flex-col h-full">
+      <div className="relative z-10 p-4 sm:p-6 space-y-3 text-sm text-black/90 flex flex-col h-full">
         {/* Header */}
         <motion.div 
           className="flex items-center justify-between text-xs font-semibold"
@@ -754,15 +848,15 @@ const EnhancedOrderCard = ({ order, onReorder, onDispute }) => {
           <span className="px-2 py-1 bg-black/10 rounded-lg">
             Order #{order.orderId.slice(-8).toUpperCase()}
           </span>
-          <span className="flex gap-2">
+          <span className="hidden sm:flex gap-2">
             <span className={`px-3 py-1 rounded-full border ${statusColor}`}>{statusLabel}</span>
             <span className={`px-3 py-1 rounded-full border ${paymentColor}`}>{paymentLabel}</span>
           </span>
         </motion.div>
 
-        {/* Dispute Status Indicators */}
+        {/* Dispute Status Indicators (hidden on mobile for compactness) */}
         {hasDispute && (
-          <div className="flex gap-2">
+          <div className="hidden sm:flex gap-2">
             <span className={`px-2 py-1 rounded-full text-xs font-medium border flex items-center gap-1 ${
               isDisputeClosed 
                 ? 'bg-green-100 text-green-800 border-green-300' 
@@ -775,8 +869,8 @@ const EnhancedOrderCard = ({ order, onReorder, onDispute }) => {
           </div>
         )}
 
-        {/* Meta Info */}
-        <div className="flex items-center justify-between text-xs text-zinc-600 mb-1">
+        {/* Meta Info (hidden on mobile) */}
+        <div className="hidden sm:flex items-center justify-between text-xs text-zinc-600 mb-1">
           <span className="capitalize flex items-center gap-1">
             {order.orderType === "pickup" ? "🏪 Pickup" : "🚚 Delivery"}
           </span>
@@ -813,11 +907,13 @@ const EnhancedOrderCard = ({ order, onReorder, onDispute }) => {
           className="font-bold text-xl pt-2 bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent"
           whileHover={{ scale: 1.05 }}
         >
-          Total: د.إ{order.price?.toFixed(2)}
+          <span className="text-transparent bg-clip-text" style={{ backgroundImage: 'linear-gradient(to right, #8e191c, #8e191c)' }}>
+            Total: AED {order.price?.toFixed(2)}
+          </span>
         </motion.p>
 
-        {/* Enhanced Items Display */}
-        <div className="flex flex-wrap gap-3 pt-3">
+        {/* Enhanced Items Display (hidden on mobile) */}
+        <div className="hidden sm:flex flex-wrap gap-3 pt-3">
           {order.orderItems?.slice(0, 2).map((item, i) => (
             <motion.div
               key={item._id || i}
@@ -828,12 +924,14 @@ const EnhancedOrderCard = ({ order, onReorder, onDispute }) => {
                 <img
                   src={item.image}
                   alt={item.name}
+                  loading="lazy"
+                  decoding="async"
                   onError={(e) => {
                     e.target.src = "https://via.placeholder.com/40";
                   }}
                   className="w-10 h-10 object-cover rounded-lg"
                 />
-                <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                <div className="absolute -top-1 -right-1 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center" style={{ backgroundColor: '#8e191c' }}>
                   {item.quantity}
                 </div>
               </div>
@@ -841,7 +939,7 @@ const EnhancedOrderCard = ({ order, onReorder, onDispute }) => {
                 <p className="text-xs font-medium max-w-[7rem] truncate text-black">
                   {item.name}
                 </p>
-                <p className="text-xs font-semibold text-black">د.إ{item.price}</p>
+                <p className="text-xs font-semibold text-black">AED {item.price}</p>
               </div>
             </motion.div>
           ))}
@@ -860,16 +958,17 @@ const EnhancedOrderCard = ({ order, onReorder, onDispute }) => {
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            className="flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold py-2 px-4 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl"
-            onClick={() => navigate(`/user/orders/${order.orderId}`)}
+            className="flex-1 text-white font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl"
+            style={{ backgroundColor: '#8e191c' }}
+            onClick={(e) => { e.stopPropagation(); navigate(`/user/orders/${order.orderId}`); }}
           >
             View Details
           </motion.button>
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            className="flex-1 bg-gradient-to-r from-zinc-200 to-zinc-300 hover:from-zinc-300 hover:to-zinc-400 text-zinc-800 font-semibold py-2 px-4 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl"
-            onClick={onReorder}
+            className="flex-1 bg-gradient-to-r from-zinc-200 to-zinc-300 hover:from-zinc-300 hover:to-zinc-400 text-zinc-800 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl"
+            onClick={(e) => { e.stopPropagation(); onReorder(); }}
           >
             Reorder
           </motion.button>
@@ -881,8 +980,9 @@ const EnhancedOrderCard = ({ order, onReorder, onDispute }) => {
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold py-2 px-3 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl text-xs"
-              onClick={() => onDispute(order.orderId)}
+            className="flex-1 text-white font-semibold py-2 px-3 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl text-xs"
+            style={{ backgroundColor: '#8e191c' }}
+              onClick={(e) => { e.stopPropagation(); onDispute(order.orderId); }}
             >
               <AlertTriangle className="w-3 h-3 inline mr-1" />
               {hasDispute && isDisputeClosed ? 'Create New Dispute' : 'Dispute'}
@@ -892,7 +992,7 @@ const EnhancedOrderCard = ({ order, onReorder, onDispute }) => {
 
         {/* Show message if order has active dispute */}
         {hasActiveDispute && (
-          <div className="pt-2">
+          <div className="hidden sm:block pt-2">
             <div className="text-xs text-gray-500 text-center bg-gray-50 rounded-lg p-2">
               <span>This order has an active dispute</span>
             </div>
@@ -901,7 +1001,7 @@ const EnhancedOrderCard = ({ order, onReorder, onDispute }) => {
 
         {/* Show message if order has closed dispute */}
         {hasDispute && isDisputeClosed && (
-          <div className="pt-2">
+          <div className="hidden sm:block pt-2">
             <div className="text-xs text-green-600 text-center bg-green-50 rounded-lg p-2">
               <span>Previous dispute was {order.dispute.status}</span>
             </div>
